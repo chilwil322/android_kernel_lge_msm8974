@@ -342,7 +342,6 @@
 		interrupts = <0 38 0>;
 		vdd-supply = <&gdsc_oxili_cx>;
 		qcom,alt-vdd-supply = <&gdsc_oxili_gx>;
-		qcom,needs-alt-core-clk;
 		label = "kgsl_iommu";
 		qcom,msm-bus,name = "kgsl_ebi";
 		qcom,msm-bus,num-cases = <2>;
