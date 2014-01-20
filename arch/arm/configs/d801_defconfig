@@ -3663,6 +3663,7 @@ CONFIG_NLATTR=y
 # CONFIG_AVERAGE is not set
 # CONFIG_CORDIC is not set
 CONFIG_QMI_ENCDEC=y
+<<<<<<< HEAD
 
 #
 # Furnace
