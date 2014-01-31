@@ -1,0 +1,310 @@
+#!/bin/bash
+
+SERV=/home/dr87
+HOST=$SERV/shared
+KERN=$SERV/dr
+STATE=dr87
+version=v4
+export Meta_tmo=$SERV/g2_k/IMPT/tmo/META-INF
+export Meta_ca=$SERV/g2_k/IMPT/ca/META-INF
+export Meta_a-tt=$SERV/g2_k/IMPT/att/META-INF
+export Meta_vzw=$SERV/g2_k/IMPT/vzw/META-INF
+export Meta_spr=$SERV/g2_k/IMPT/spr/META-INF
+export Meta_intl=$SERV/g2_k/IMPT/intl/META-INF
+export PACKAGEDIR=$SERV/g2_k/kernelwork/g2_out
+export USE_SEC_FIPS_MODE=true
+export ccache=scripts
+export CCACHE_DIR=/home/dr87/ccache
+export loki=$SERV/g2_k/IMPT/tmp
+export ARCH=arm
+export PATH=${PATH}:$SERV/4.7/bin/
+export CROSS_COMPILE=arm-eabi-
+ramdisk=ramdisk
+
+echo "Checking out"
+git checkout kkdev
+
+echo "Check for updates"
+git pull
+
+./$ccache/ccache -M 1000G
+
+echo "Remove old Package Files"
+if [[ ! -d $PACKAGEDIR ]]; then
+mkdir -p $PACKAGEDIR
+
+else
+
+echo "directory already exist"
+echo "cleaning out directory"
+rm -rf $PACKAGEDIR/*
+fi
+
+
+select CHOICE in att tmo intl ca spr vzw cm
+do
+case "$CHOICE" in
+    "att")
+         config=d800_defconfig
+         break;;
+    "tmo")
+         config=d801_defconfig
+         break;;
+    "intl")
+         config=d802_defconfig
+         break;;
+    "ca")
+         config=d803_defconfig
+         break;;
+    "spr")
+         config=ls980_defconfig
+         break;;
+    "vzw")
+         config=vs980_defconfig
+         break;;
+    "cm")
+         . $KERN/cm_PAEK
+         break;;
+  esac
+done
+
+if [ ! -f out/zImage ]
+then
+    if [ -f out/kernel/noclean ]
+    then
+	echo "--- Cleaning up ---"
+	rm -rf out
+	make clean
+        make mrproper
+    fi
+
+	mkdir -p $KERN/out/kernel
+	echo "--- Making defconfig ---"
+	make O=$KERN/out/kernel $config
+	echo "--- Building kernel ---"
+        script -q ~/Compile.log -c "
+        make -j32 O=$KERN/out/kernel "
+	touch $KERN/out/kernel/noclean
+
+  if [ -f $KERN/out/kernel/arch/arm/boot/zImage ]
+  then
+	echo "--- Installing modules ---"
+	make -C $KERN/out/kernel INSTALL_MOD_PATH=.. modules_install
+	mdpath=`find $KERN/out/lib/modules -type f -name modules.order`
+
+	  if [ "$mdpath" != "" ]
+	  then
+		mpath=`dirname $mdpath`
+		ko=`find $mpath/kernel -type f -name *.ko`
+		for i in $ko
+		do "$CROSS_COMPILE"strip --strip-unneeded $i
+		mkdir -p $KERN/out/system/lib/modules
+		mv $i $KERN/out/system/lib/modules
+		done
+	  else
+	  echo "--- No modules found ---"
+	  fi
+
+	cp $KERN/out/kernel/arch/arm/boot/zImage $KERN/out
+#	rm -f $KERN/out/kernel/noclean
+	rm -rf $KERN/out/lib
+  else
+	exit 0
+  fi
+fi
+
+if [ -d $KERN/ramdisk ]
+then
+	mkdir -p $KERN/out/boot
+	mv $KERN/out/zImage $KERN/out/boot
+	cp scripts/mkbootimg $KERN/out/boot
+	./scripts/mkbootfs $ramdisk | gzip > ramdisk.gz
+	mv ramdisk.gz $KERN/out/boot
+	./scripts/dtbTool -s 2048 -o $KERN/out/boot/dt.img $KERN/out/kernel/arch/arm/boot/
+	cd $KERN/out/boot
+
+	base=0x00000000
+	offset=0x05000000
+	tags_addr=0x04800000
+	cmd_line="console=ttyHSL0,115200,n8 androidboot.hardware=g2 user_debug=31 msm_rtb.filter=0x0"
+
+	echo "--- Creating boot.img ---"
+	./mkbootimg --kernel zImage --ramdisk ramdisk.gz --cmdline "$cmd_line" --base $base --offset $offset --tags-addr $tags_addr --pagesize 2048 --dt dt.img -o newboot.img
+	cd ../..
+	mv $KERN/out/boot/newboot.img out/boot.img
+	rm -rf $KERN/out/boot
+else
+	echo "--- No ramdisk found ---"
+	exit 0
+fi
+
+        cd $KERN
+  	export curdate=`date "+%m-%d-%Y"`
+  if    [ $config = "d800_defconfig" ]; then
+
+	mv out/boot.img $PACKAGEDIR
+
+	echo "Import of META-INF"
+	cp -R $Meta_att $PACKAGEDIR
+
+	echo "loki"
+	cp -R $loki $PACKAGEDIR
+
+        echo "modules"
+        mkdir -p $PACKAGEDIR/system/lib/modules
+        mv $KERN/out/system/lib/modules/* $PACKAGEDIR/system/lib/modules
+
+	cd $PACKAGEDIR
+	rm $SERV/ATT*.zip
+	zip -r ../ATT-$STATE-$version-$curdate.zip .
+	mv ../ATT-$STATE-$version-$curdate.zip $SERV
+        touch $SERV/g2_k/1
+
+  elif  [ $config = "d801_defconfig" ]; then
+	mv out/boot.img $PACKAGEDIR
+
+	echo "Import of META-INF"
+	cp -R $Meta_att $PACKAGEDIR
+
+	echo "loki"
+	cp -R $loki $PACKAGEDIR
+
+        echo "modules"
+        mkdir -p $PACKAGEDIR/system/lib/modules
+        mv $KERN/out/system/lib/modules/* $PACKAGEDIR/system/lib/modules
+
+	cd $PACKAGEDIR
+	rm $SERV/TMO*.zip
+	zip -r ../TMO-$STATE-$version-$curdate.zip .
+	mv ../TMO-$STATE-$version-$curdate.zip $SERV
+
+
+        if [ -f $SERV/g2_k/1 ]; then
+           rm $SERV/g2_k/1
+           touch $SERV/g2_k/2
+        fi
+
+  elif [ $config = "d802_defconfig" ]; then
+
+	mv out/boot.img $PACKAGEDIR
+
+	echo "Import of META-INF"
+	cp -R $Meta_intl $PACKAGEDIR
+
+	echo "loki"
+	cp -R $loki $PACKAGEDIR
+
+        echo "modules"
+        mkdir -p $PACKAGEDIR/system/lib/modules
+        mv $KERN/out/system/lib/modules/* $PACKAGEDIR/system/lib/modules
+
+	cd $PACKAGEDIR
+	rm $SERV/INTL*.zip
+	zip -r ../INTL-$STATE-$version-$curdate.zip .
+	mv ../INTL-$STATE-$version-$curdate.zip $SERV
+
+        if [ -f $SERV/g2_k/2 ]; then
+          rm $SERV/g2_k/2
+          touch $SERV/g2_k/3
+        fi
+
+  elif [ $config = "d803_defconfig" ]; then
+
+	mv out/boot.img $PACKAGEDIR
+
+	echo "Import of META-INF"
+	cp -R $Meta_ca $PACKAGEDIR
+
+	echo "loki"
+	cp -R $loki $PACKAGEDIR
+
+        echo "modules"
+        mkdir -p $PACKAGEDIR/system/lib/modules
+        mv $KERN/out/system/lib/modules/* $PACKAGEDIR/system/lib/modules
+
+	cd $PACKAGEDIR
+	rm $SERV/CA*.zip
+	zip -r ../CA-$STATE-$version-$curdate.zip .
+	mv ../CA-$STATE-$version-$curdate.zip $SERV
+
+        if [ -f $SERV/g2_k/3 ]; then
+          rm $SERV/g2_k/3
+          touch $SERV/g2_k/4
+        fi
+
+  elif [ $config = "ls980_defconfig" ]; then
+
+	mv out/boot.img $PACKAGEDIR
+
+	echo "Import of META-INF"
+	cp -R $Meta_spr $PACKAGEDIR
+
+	echo "loki"
+	cp -R $loki $PACKAGEDIR
+
+        echo "modules"
+        mkdir -p $PACKAGEDIR/system/lib/modules
+        mv $KERN/out/system/lib/modules/* $PACKAGEDIR/system/lib/modules
+
+	cd $PACKAGEDIR
+	rm $SERV/SPR*.zip
+	zip -r ../SPR-$STATE-$version-$curdate.zip .
+	mv ../SPR-$STATE-$version-$curdate.zip $SERV
+
+        if [ -f $SERV/g2_k/4 ]; then
+          rm $SERV/g2_k/4
+          touch $SERV/g2_k/5
+        fi
+
+  elif [ $config = "vs980_defconfig" ]; then
+	mv out/boot.img $PACKAGEDIR
+
+	echo "Import of META-INF"
+	cp -R $Meta_vzw $PACKAGEDIR
+
+	echo "loki"
+	cp -R $loki $PACKAGEDIR
+
+        echo "modules"
+        mkdir -p $PACKAGEDIR/system/lib/modules
+        mv $KERN/out/system/lib/modules/* $PACKAGEDIR/system/lib/modules
+
+	cd $PACKAGEDIR
+	rm $SERV/VZW*.zip
+	zip -r ../VZW-$STATE-$version-$curdate.zip .
+	mv ../VZW-$STATE-$version-$curdate.zip $SERV
+
+        if [ -f $SERV/g2_k/5 ]; then
+          rm $SERV/g2_k/5
+          touch $SERV/g2_k/all
+        fi
+
+  else
+	echo "--- No Boot.img found --"
+	exit 0
+        fi
+
+sleep 2
+
+if [ -f $SERV/g2_k/all ]; then
+   echo "Do you want to upload to server?"
+   echo -n " "
+   read usr
+
+   if [[ $usr = y || $usr = Y ]]; then
+      if [ ! -d $HOST/old ]; then
+         mkdir -p $HOST/old
+         mv $HOST/*.zip $HOST/old
+      else 
+	mv $HOST/*.zip $HOST/old
+      fi
+
+      mv $SERV/*-$STATE-$version-$curdate.zip $HOST
+      rm $SERV/g2_k/all
+   elif [[ $usr = p || $usr = P ]]; then
+      mv $SERV/g2_k/TMO-$STATE-$version-$curdate.zip $HOST/.private
+   fi
+   else
+      exit 0
+      fi
+
