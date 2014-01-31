@@ -94,7 +94,7 @@ enum z180_cmdwindow_type {
 #define Z180_CMDWINDOW_ADDR_SHIFT		8
 
 static int z180_init(struct kgsl_device *device);
-static int z180_start(struct kgsl_device *device, int priority);
+static int z180_start(struct kgsl_device *device);
 static int z180_stop(struct kgsl_device *device);
 static int z180_wait(struct kgsl_device *device,
 				struct kgsl_context *context,
@@ -406,9 +406,7 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 
 	mutex_lock(&device->mutex);
 
-	result = kgsl_active_count_get(device);
-	if (result)
-		goto error_active_count;
+	kgsl_active_count_get(device);
 
 	if (cmdbatch == NULL) {
 		result = EINVAL;
@@ -517,7 +515,7 @@ error:
 		*timestamp, cmdbatch ? cmdbatch->flags : 0, result, 0);
 
 	kgsl_active_count_put(device);
-error_active_count:
+
 	mutex_unlock(&device->mutex);
 
 	return (int)result;
@@ -559,7 +557,8 @@ static int __devinit z180_probe(struct platform_device *pdev)
 	if (status)
 		goto error_close_ringbuffer;
 
-	kgsl_pwrscale_init(&pdev->dev, CONFIG_MSM_Z180_DEFAULT_GOVERNOR);
+	kgsl_pwrscale_init(device);
+	kgsl_pwrscale_attach_policy(device, Z180_DEFAULT_PWRSCALE_POLICY);
 
 	return status;
 
@@ -594,7 +593,7 @@ static int z180_init(struct kgsl_device *device)
 	return 0;
 }
 
-static int z180_start(struct kgsl_device *device, int priority)
+static int z180_start(struct kgsl_device *device)
 {
 	int status = 0;
 
@@ -864,13 +863,9 @@ static int z180_waittimestamp(struct kgsl_device *device,
 	if (msecs == -1)
 		msecs = Z180_IDLE_TIMEOUT;
 
-	status = kgsl_active_count_get(device);
-	if (!status) {
-		mutex_unlock(&device->mutex);
-		status = z180_wait(device, context, timestamp, msecs);
-		mutex_lock(&device->mutex);
-		kgsl_active_count_put(device);
-	}
+	mutex_unlock(&device->mutex);
+	status = z180_wait(device, context, timestamp, msecs);
+	mutex_lock(&device->mutex);
 
 	return status;
 }
@@ -919,16 +914,11 @@ z180_drawctxt_create(struct kgsl_device_private *dev_priv,
 static int
 z180_drawctxt_detach(struct kgsl_context *context)
 {
-	int ret;
 	struct kgsl_device *device;
 	struct z180_device *z180_dev;
 
 	device = context->device;
 	z180_dev = Z180_DEVICE(device);
-
-	ret = kgsl_active_count_get(device);
-	if (ret)
-		return ret;
 
 	z180_idle(device);
 
@@ -941,7 +931,6 @@ z180_drawctxt_detach(struct kgsl_context *context)
 				KGSL_MMUFLAGS_PTUPDATE);
 	}
 
-	kgsl_active_count_put(device);
 	return 0;
 }
 
@@ -954,16 +943,18 @@ z180_drawctxt_destroy(struct kgsl_context *context)
 static void z180_power_stats(struct kgsl_device *device,
 			    struct kgsl_power_stats *stats)
 {
-	struct kgsl_pwrscale *pwrscale = &device->pwrscale;
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	s64 tmp = ktime_to_us(ktime_get());
 
-	memset(stats, 0, sizeof(stats));
-	if (pwrscale->on_time == 0) {
-		pwrscale->on_time = tmp;
+	if (pwr->time == 0) {
+		pwr->time = tmp;
+		stats->total_time = 0;
 		stats->busy_time = 0;
 	} else {
-		stats->busy_time = tmp - pwrscale->on_time;
-		pwrscale->on_time = tmp;
+		stats->total_time = tmp - pwr->time;
+		pwr->time = tmp;
+		stats->busy_time = tmp - device->on_time;
+		device->on_time = tmp;
 	}
 }
 

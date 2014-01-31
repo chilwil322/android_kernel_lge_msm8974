@@ -1971,19 +1971,17 @@ static int a2xx_rb_init(struct adreno_device *adreno_dev,
 	return 0;
 }
 
-static void a2xx_busy_cycles(struct adreno_device *adreno_dev,
-				struct adreno_busy_data *data)
+static unsigned int a2xx_busy_cycles(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	unsigned int reg;
+	unsigned int reg, val;
 
-	memset(data, 0, sizeof(*data));
 	/* Freeze the counter */
 	kgsl_regwrite(device, REG_CP_PERFMON_CNTL,
 		REG_PERF_MODE_CNT | REG_PERF_STATE_FREEZE);
 
 	/* Get the value */
-	kgsl_regread(device, REG_RBBM_PERFCOUNTER1_LO, &data->gpu_busy);
+	kgsl_regread(device, REG_RBBM_PERFCOUNTER1_LO, &val);
 
 	/* Reset the counter */
 	kgsl_regwrite(device, REG_CP_PERFMON_CNTL,
@@ -1996,6 +1994,7 @@ static void a2xx_busy_cycles(struct adreno_device *adreno_dev,
 	kgsl_regwrite(device, REG_CP_PERFMON_CNTL,
 		REG_PERF_MODE_CNT | REG_PERF_STATE_ENABLE);
 
+	return val;
 }
 
 static void a2xx_gmeminit(struct adreno_device *adreno_dev)
@@ -2089,8 +2088,6 @@ static void a2xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, REG_SQ_INT_CNTL, 0);
 
 	a2xx_gmeminit(adreno_dev);
-
-	kgsl_regwrite(device, REG_CP_DEBUG, A2XX_CP_DEBUG_DEFAULT);
 }
 
 static void a2xx_postmortem_dump(struct adreno_device *adreno_dev)

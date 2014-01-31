@@ -62,8 +62,6 @@
 #define KGSL_EVENT_TIMESTAMP_RETIRED 0
 #define KGSL_EVENT_CANCELLED 1
 
-#define KGSL_FLAG_WAKE_ON_TOUCH BIT(0)
-
 /*
  * "list" of event types for ftrace symbolic magic
  */
@@ -93,7 +91,7 @@ struct kgsl_functable {
 	bool (*isidle) (struct kgsl_device *device);
 	int (*suspend_context) (struct kgsl_device *device);
 	int (*init) (struct kgsl_device *device);
-	int (*start) (struct kgsl_device *device, int priority);
+	int (*start) (struct kgsl_device *device);
 	int (*stop) (struct kgsl_device *device);
 	int (*getproperty) (struct kgsl_device *device,
 		enum kgsl_property_type type, void *value,
@@ -244,7 +242,6 @@ struct kgsl_device {
 	struct kgsl_mh mh;
 	struct kgsl_mmu mmu;
 	struct completion hwaccess_gate;
-	struct completion cmdbatch_gate;
 	const struct kgsl_functable *ftbl;
 	struct work_struct idle_check_ws;
 	struct timer_list idle_timer;
@@ -302,6 +299,7 @@ struct kgsl_device {
 	struct list_head events;
 	struct list_head events_pending_list;
 	unsigned int events_last_timestamp;
+	s64 on_time;
 
 	/* Postmortem Control switches */
 	int pm_regs_enabled;
@@ -315,7 +313,6 @@ void kgsl_process_events(struct work_struct *work);
 
 #define KGSL_DEVICE_COMMON_INIT(_dev) \
 	.hwaccess_gate = COMPLETION_INITIALIZER((_dev).hwaccess_gate),\
-	.cmdbatch_gate = COMPLETION_INITIALIZER((_dev).cmdbatch_gate),\
 	.idle_check_ws = __WORK_INITIALIZER((_dev).idle_check_ws,\
 			kgsl_idle_check),\
 	.ts_expired_ws  = __WORK_INITIALIZER((_dev).ts_expired_ws,\
@@ -427,6 +424,11 @@ enum kgsl_process_priv_flags {
 struct kgsl_device_private {
 	struct kgsl_device *device;
 	struct kgsl_process_private *process_priv;
+};
+
+struct kgsl_power_stats {
+	s64 total_time;
+	s64 busy_time;
 };
 
 struct kgsl_device *kgsl_get_device(int dev_idx);

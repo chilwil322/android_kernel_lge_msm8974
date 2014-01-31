@@ -278,9 +278,6 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 		sg = table->sgl;
 		list_for_each_entry_safe(info, tmp_info, &pages_list, list) {
 			struct page *page = info->page;
-#ifdef CONFIG_LGE_MEMORY_INFO
-			__inc_zone_page_state(page, NR_ION_PAGES);
-#endif
 			sg_set_page(sg, page, order_to_size(info->order), 0);
 			sg_dma_address(sg) = sg_phys(sg);
 			sg = sg_next(sg);
@@ -357,10 +354,6 @@ static void ion_iommu_heap_free(struct ion_buffer *buffer)
 		int order = get_order(sg_dma_len(sg));
 		int idx = order_to_index(order);
 		struct ion_page_pool *pool;
-
-#ifdef CONFIG_LGE_MEMORY_INFO
-		__dec_zone_page_state(sg_page(sg), NR_ION_PAGES);
-#endif
 
 		if (idx == BAD_ORDER) {
 			WARN_ON(1);
@@ -544,7 +537,7 @@ struct ion_heap *ion_iommu_heap_create(struct ion_platform_heap *heap_data)
 			gfp_flags = high_gfp_flags | __GFP_ZERO;
 		else
 			gfp_flags = low_gfp_flags | __GFP_ZERO;
-		pool = ion_page_pool_create(gfp_flags, orders[i], true);
+		pool = ion_page_pool_create(gfp_flags, orders[i]);
 		if (!pool)
 			goto err_create_cached_pool;
 		iommu_heap->cached_pools[i] = pool;
@@ -558,7 +551,7 @@ struct ion_heap *ion_iommu_heap_create(struct ion_platform_heap *heap_data)
 			gfp_flags = high_gfp_flags | __GFP_ZERO;
 		else
 			gfp_flags = low_gfp_flags | __GFP_ZERO;
-		pool = ion_page_pool_create(gfp_flags, orders[i], false);
+		pool = ion_page_pool_create(gfp_flags, orders[i]);
 		if (!pool)
 			goto err_create_uncached_pool;
 		iommu_heap->uncached_pools[i] = pool;
