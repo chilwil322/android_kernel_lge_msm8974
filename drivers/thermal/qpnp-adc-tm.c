@@ -192,7 +192,6 @@ struct qpnp_adc_tm_drv {
 	bool				adc_tm_initialized;
 	int				max_channels_available;
 	struct qpnp_adc_tm_sensor	sensor[0];
-	bool				usb_id_ext_pull_up;
 };
 
 struct qpnp_adc_tm_drv	*qpnp_adc_tm;
@@ -1297,15 +1296,6 @@ static irqreturn_t qpnp_adc_tm_low_thr_isr(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t qpnp_adc_tm_isr(int irq, void *dev_id)
-{
-	struct qpnp_adc_tm_drv *adc_tm = dev_id;
-
-	complete(&adc_tm->adc->adc_rslt_completion);
-
-	return IRQ_HANDLED;
-}
-
 static int qpnp_adc_read_temp(struct thermal_zone_device *thermal,
 			     unsigned long *temp)
 {
@@ -1343,7 +1333,7 @@ int32_t qpnp_adc_tm_channel_measure(struct qpnp_adc_tm_btm_param *param)
 		return -ENODEV;
 
 	if (param->threshold_notification == NULL) {
-		pr_err("No notification for high/low temp??\n");
+		pr_debug("No notification for high/low temp??\n");
 		return -EINVAL;
 	}
 
@@ -1489,16 +1479,11 @@ EXPORT_SYMBOL(qpnp_adc_tm_disable_chan_meas);
 
 int32_t qpnp_adc_tm_usbid_configure(struct qpnp_adc_tm_btm_param *param)
 {
-	struct qpnp_adc_tm_drv *adc_tm = qpnp_adc_tm;
-
-	if (!adc_tm || !adc_tm->adc_tm_initialized)
-		return -ENODEV;
-
-	if (adc_tm->usb_id_ext_pull_up)
-		param->channel = LR_MUX10_USB_ID_LV;
-	else
-		param->channel = LR_MUX10_PU2_AMUX_USB_ID_LV;
-
+#ifdef CONFIG_MACH_LGE
+	param->channel = LR_MUX10_USB_ID_LV;
+#else
+	param->channel = LR_MUX10_PU2_AMUX_USB_ID_LV;
+#endif
 	return qpnp_adc_tm_channel_measure(param);
 }
 EXPORT_SYMBOL(qpnp_adc_tm_usbid_configure);
@@ -1590,17 +1575,6 @@ static int __devinit qpnp_adc_tm_probe(struct spmi_device *spmi)
 		goto fail;
 	}
 
-	rc = devm_request_irq(&spmi->dev, adc_tm->adc->adc_irq_eoc,
-				qpnp_adc_tm_isr, IRQF_TRIGGER_RISING,
-				"qpnp_adc_tm_interrupt", adc_tm);
-	if (rc) {
-		dev_err(&spmi->dev,
-			"failed to request adc irq with error %d\n", rc);
-		goto fail;
-	} else {
-		enable_irq_wake(adc_tm->adc->adc_irq_eoc);
-	}
-
 	rc = devm_request_irq(&spmi->dev, adc_tm->adc->adc_high_thr_irq,
 				qpnp_adc_tm_high_thr_isr,
 		IRQF_TRIGGER_RISING, "qpnp_adc_tm_high_interrupt", adc_tm);
@@ -1683,9 +1657,6 @@ static int __devinit qpnp_adc_tm_probe(struct spmi_device *spmi)
 		pr_err("multi meas en failed\n");
 		goto fail;
 	}
-
-	adc_tm->usb_id_ext_pull_up = of_property_read_bool(node,
-						"usb-id-ext-pull-up");
 
 	adc_tm->adc_tm_initialized = true;
 
