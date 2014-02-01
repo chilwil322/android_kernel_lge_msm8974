@@ -7,7 +7,7 @@ STATE=dr87
 version=v4
 export Meta_tmo=$SERV/g2_k/IMPT/tmo/META-INF
 export Meta_ca=$SERV/g2_k/IMPT/ca/META-INF
-export Meta_a-tt=$SERV/g2_k/IMPT/att/META-INF
+export Meta_att=$SERV/g2_k/IMPT/att/META-INF
 export Meta_vzw=$SERV/g2_k/IMPT/vzw/META-INF
 export Meta_spr=$SERV/g2_k/IMPT/spr/META-INF
 export Meta_intl=$SERV/g2_k/IMPT/intl/META-INF
@@ -164,7 +164,7 @@ fi
 	mv out/boot.img $PACKAGEDIR
 
 	echo "Import of META-INF"
-	cp -R $Meta_att $PACKAGEDIR
+	cp -R $Meta_tmo $PACKAGEDIR
 
 	echo "loki"
 	cp -R $loki $PACKAGEDIR
