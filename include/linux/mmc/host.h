@@ -196,10 +196,6 @@ struct mmc_hotplug {
 	void *handler_priv;
 };
 
-#ifdef CONFIG_MACH_LGE
-extern int mmc_cd_get_status(struct mmc_host *host);
-#endif
-
 struct mmc_host {
 	struct device		*parent;
 	struct device		class_dev;

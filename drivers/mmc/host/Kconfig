@@ -297,6 +297,16 @@ config MMC_ATMELMCI
 
 endchoice
 
+config MMC_ATMELMCI_DMA
+	bool "Atmel MCI DMA support"
+	depends on MMC_ATMELMCI && (AVR32 || ARCH_AT91SAM9G45) && DMA_ENGINE
+	help
+	  Say Y here to have the Atmel MCI driver use a DMA engine to
+	  do data transfers and thus increase the throughput and
+	  reduce the CPU utilization.
+
+	  If unsure, say N.
+
 config MMC_IMX
 	tristate "Motorola i.MX Multimedia Card Interface support"
 	depends on ARCH_MX1
@@ -306,14 +316,6 @@ config MMC_IMX
 	  say Y or M here.
 
 	  If unsure, say N.
-
-config MMC_MSM
-	tristate "Qualcomm SDCC Controller Support"
-	depends on MMC && ARCH_MSM
-	help
-	  This provides support for the SD/MMC cell found in the
-	  MSM and QSD SOCs from Qualcomm. The controller also has
-	  support for SDIO devices.
 
 config MMC_MXC
 	tristate "Freescale i.MX21/27/31 Multimedia Card Interface support"
@@ -475,7 +477,8 @@ config MMC_MSM
 	depends on MMC && ARCH_MSM
 	help
 	  This provides support for the SD/MMC cell found in the
-          MSM and QSD SOCs from Qualcomm.
+	  MSM and QSD SOCs from Qualcomm. The controller also has
+	  support for SDIO devices.
 
 config MMC_MSM_SDC1_SUPPORT
 	boolean "Qualcomm SDC1 support"
@@ -508,7 +511,7 @@ config MMC_MSM_SDC2_8_BIT_SUPPORT
 config MMC_MSM_SDC3_SUPPORT
 	boolean "Qualcomm SDC3 support"
 	depends on MMC_MSM
-	default y
+	default n
 	help
 	  Select Y to enable Slot 3.
 
@@ -564,11 +567,6 @@ config MMC_MSM_SPS_SUPPORT
 	default n
 	help
 	  Select Y to use SPS BAM as data mover
-
-config MMC_MSM_DEBUGFS
-    bool "MSM debugfs"
-    depends on MMC_MSM && DEBUG_FS
-    default n
 
 config MMC_TMIO
 	tristate "Toshiba Mobile IO Controller (TMIO) MMC/SD function support"

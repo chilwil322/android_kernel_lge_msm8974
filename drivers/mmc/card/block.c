@@ -1128,13 +1128,8 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 			break;
 
 		prev_cmd_status_valid = false;
-		#ifdef CONFIG_MACH_LGE
-		pr_err("[LGE][MMC]%s: error %d sending status command, %sing, cd-gpio:%d\n",
-		       req->rq_disk->disk_name, err, retry ? "retry" : "abort", mmc_cd_get_status(card->host));
-		#else
 		pr_err("%s: error %d sending status command, %sing\n",
 		       req->rq_disk->disk_name, err, retry ? "retry" : "abort");
-		#endif
 	}
 
 	/* We couldn't get a response from the card.  Give up. */
@@ -1500,6 +1495,7 @@ static int mmc_blk_err_check(struct mmc_card *card,
 	 */
 	if (!mmc_host_is_spi(card->host) && rq_data_dir(req) != READ) {
 		u32 status;
+		unsigned long timeout;
 
 		/* Check stop command response */
 		if (brq->stop.resp[0] & R1_ERROR) {
@@ -1509,6 +1505,7 @@ static int mmc_blk_err_check(struct mmc_card *card,
 			gen_err = 1;
 		}
 
+		timeout = jiffies + msecs_to_jiffies(MMC_BLK_TIMEOUT_MS);
 		do {
 			int err = get_card_status(card, &status, 5);
 			if (err) {
@@ -1524,6 +1521,16 @@ static int mmc_blk_err_check(struct mmc_card *card,
 				gen_err = 1;
 			}
 
+			/* Timeout if the device never becomes ready for data
+			 * and never leaves the program state.
+			 */
+			if (time_after(jiffies, timeout)) {
+				pr_err("%s: Card stuck in programming state!"\
+					" %s %s\n", mmc_hostname(card->host),
+					req->rq_disk->disk_name, __func__);
+
+				return MMC_BLK_CMD_ERR;
+			}
 			/*
 			 * Some cards mishandle the status bits,
 			 * so make sure to check both the busy
@@ -1535,7 +1542,7 @@ static int mmc_blk_err_check(struct mmc_card *card,
 
 	/* if general error occurs, retry the write operation. */
 	if (gen_err) {
-		pr_warning("%s: retrying write for general error\n",
+		pr_warn("%s: retrying write for general error\n",
 				req->rq_disk->disk_name);
 		return MMC_BLK_RETRY;
 	}
@@ -3162,11 +3169,11 @@ static void mmc_blk_shutdown(struct mmc_card *card)
 
 	/* Silent the block layer */
 	if (md) {
-		rc = mmc_queue_suspend(&md->queue);
+		rc = mmc_queue_suspend(&md->queue, 1);
 		if (rc)
 			goto suspend_error;
 		list_for_each_entry(part_md, &md->part, part) {
-			rc = mmc_queue_suspend(&part_md->queue);
+			rc = mmc_queue_suspend(&part_md->queue, 1);
 			if (rc)
 				goto suspend_error;
 		}
@@ -3193,11 +3200,11 @@ static int mmc_blk_suspend(struct mmc_card *card)
 	int rc = 0;
 
 	if (md) {
-		rc = mmc_queue_suspend(&md->queue);
+		rc = mmc_queue_suspend(&md->queue, 0);
 		if (rc)
 			goto out;
 		list_for_each_entry(part_md, &md->part, part) {
-			rc = mmc_queue_suspend(&part_md->queue);
+			rc = mmc_queue_suspend(&part_md->queue, 0);
 			if (rc)
 				goto out_resume;
 		}

@@ -199,15 +199,7 @@ static struct scatterlist *mmc_alloc_sg(int sg_len, int *err)
 {
 	struct scatterlist *sg;
 
-	#ifdef CONFIG_MACH_LGE
-		/* LGE_CHANGE, 2013-07-09, G2-FS@lge.com
-		* In case of alloc-fail, we add '__GFP_NOFAIL'.
-		*/
-		sg = kmalloc(sizeof(struct scatterlist)*sg_len, GFP_KERNEL|__GFP_NOFAIL);
-	#else
 	sg = kmalloc(sizeof(struct scatterlist)*sg_len, GFP_KERNEL);
-	#endif
-
 	if (!sg)
 		*err = -ENOMEM;
 	else {
@@ -446,12 +438,13 @@ EXPORT_SYMBOL(mmc_cleanup_queue);
 /**
  * mmc_queue_suspend - suspend a MMC request queue
  * @mq: MMC queue to suspend
+ * @wait: Wait till MMC request queue is empty
  *
  * Stop the block request queue, and wait for our thread to
  * complete any outstanding requests.  This ensures that we
  * won't suspend while a request is being processed.
  */
-int mmc_queue_suspend(struct mmc_queue *mq)
+int mmc_queue_suspend(struct mmc_queue *mq, int wait)
 {
 	struct request_queue *q = mq->queue;
 	unsigned long flags;
@@ -465,7 +458,7 @@ int mmc_queue_suspend(struct mmc_queue *mq)
 		spin_unlock_irqrestore(q->queue_lock, flags);
 
 		rc = down_trylock(&mq->thread_sem);
-		if (rc) {
+		if (rc && !wait) {
 			/*
 			 * Failed to take the lock so better to abort the
 			 * suspend because mmcqd thread is processing requests.
@@ -475,6 +468,9 @@ int mmc_queue_suspend(struct mmc_queue *mq)
 			blk_start_queue(q);
 			spin_unlock_irqrestore(q->queue_lock, flags);
 			rc = -EBUSY;
+		} else if (rc && wait) {
+			down(&mq->thread_sem);
+			rc = 0;
 		}
 	}
 	return rc;
