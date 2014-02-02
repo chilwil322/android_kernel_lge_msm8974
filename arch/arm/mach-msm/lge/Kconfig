@@ -268,13 +268,6 @@ config DEBUG_USER_INIT
 	help
 	  Print the init process debug message only.
 
-config LGE_BOOTLOADER_LOG
-	tristate "Support LGE bootloader log"
-	default n
-	depends on MACH_LGE
-	help
-	  LGE bootloader log
-
 config LGE_HANDLE_PANIC
 	tristate "Support LGE Kernel Panic Handler"
 	default n
@@ -297,22 +290,6 @@ config LGE_LCD_TUNING
 	depends on MACH_LGE
 	help
 	  Support LCD gamma tuning.
-
-config LGE_BOOTLOADER_TIME_CHECKER
-	bool "Show bootloader(LK, SBL) time"
-	default n
-	depends on MACH_LGE
-	help
-	  This shows the lk and sbl1 booting time in MSM8974.
-	  If this feature is enabled, it should be check by adb shell.
-	  Device Node : sys/module/lge_bootloader_time_checker/
-
-config LGE_ECO_MODE
-	tristate "Support LGE ECO Mode"
-	default n
-	depends on MACH_LGE
-	help
-	  LGE ECO mode support
 
 config LGE_QFPROM_INTERFACE
 	bool "Support qfprom interface"

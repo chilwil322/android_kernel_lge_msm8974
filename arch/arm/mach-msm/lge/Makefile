@@ -26,12 +26,7 @@ endif
 
 obj-$(CONFIG_MACH_LGE) += devices_lge.o
 obj-$(CONFIG_MACH_LGE) += lge_charging_scenario.o
-obj-$(CONFIG_HAS_EARLYSUSPEND) += lge_suspend_autotest.o
-obj-$(CONFIG_MACH_LGE) += lge_blocking_monitor.o
-obj-$(CONFIG_LGE_BOOTLOADER_LOG) += lge_bootloader_log.o
 obj-$(CONFIG_LGE_HANDLE_PANIC) += lge_handle_panic.o
-obj-$(CONFIG_LGE_BOOTLOADER_TIME_CHECKER) += lge_bootloader_time_checker.o
-obj-$(CONFIG_LGE_ECO_MODE) += lge_kernel_driver.o
 obj-$(CONFIG_LGE_BLUETOOTH) += board-8974-g2-rfkill.o
 obj-$(CONFIG_LGE_QFPROM_INTERFACE) += lge_qfprom_access.o
 obj-$(CONFIG_LGE_PM) += lge_gpio_debug.o
