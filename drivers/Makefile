@@ -148,8 +148,3 @@ obj-$(CONFIG_LGE_BROADCAST_TDMB) += broadcast/
 
 #1Seg
 obj-$(CONFIG_LGE_BROADCAST_ONESEG) += broadcast/
-
-#FeliCa
-obj-$(CONFIG_LGE_FELICA) 	+= felica/
-
-obj-$(CONFIG_BIF)		+= bif/
