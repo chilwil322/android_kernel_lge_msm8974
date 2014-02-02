@@ -1,4 +1,4 @@
-/* Copyright (c) 2012 LG Electronics. All rights reserved.
+/* Copyright (c) 2012,2013 LGE Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,8 +18,6 @@
 #define LGE_ERR_KERN    0x0100
 #define LGE_ERR_RPM     0x0200
 #define LGE_ERR_TZ      0x0300
-#define LGE_ERR_DBI     0x0400
-#define LGE_LAF_CRASH   0x0500
 
 #define LGE_SUB_ADSP    0x1000
 #define LGE_SUB_MBA     0x2000
@@ -41,11 +39,15 @@
 
 #define LAF_DLOAD_MODE   0x6C616664 /* lafd */
 
+int lge_is_handle_panic_enable(void);
 int lge_set_magic_subsystem(const char *name, int type);
 void lge_skip_dload_by_sbl(int on);
 void lge_set_ram_console_addr(unsigned int addr, unsigned int size);
 void lge_set_panic_reason(void);
 void lge_set_fb1_addr(unsigned int addr);
 void lge_set_restart_reason(unsigned int);
+void lge_check_crash_skiped(char *reason);
+bool lge_is_crash_skipped(void);
+void lge_clear_crash_skipped(void);
 
 #endif

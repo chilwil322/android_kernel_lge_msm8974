@@ -1,7 +1,7 @@
 /*
  * arch/arm/mach-msm/lge/lge_handle_panic.c
  *
- * Copyright (C) 2012 LGE, Inc
+ * Copyright (C) 2012,2013 LGE, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -23,7 +23,6 @@
 #include <mach/subsystem_restart.h>
 #include <mach/msm_iomap.h>
 #include <mach/lge_handle_panic.h>
-#include <mach/board_lge.h>
 
 #define PANIC_HANDLER_NAME        "panic-handler"
 
@@ -44,6 +43,15 @@
 static int dummy_arg;
 
 static int subsys_crash_magic = 0x0;
+
+static int enable = 0;
+module_param_named(enable, enable, int, S_IWUSR | S_IRUGO);
+
+int lge_is_handle_panic_enable(void)
+{
+	return enable;
+}
+EXPORT_SYMBOL(lge_is_handle_panic_enable);
 
 int lge_set_magic_subsystem(const char *name, int type)
 {
@@ -85,24 +93,43 @@ void lge_set_fb1_addr(unsigned int addr)
 }
 EXPORT_SYMBOL(lge_set_fb1_addr);
 
-void lge_set_restart_reason(unsigned int reason)
-{
-	if ((lge_get_laf_mode() == LGE_LAF_MODE_LAF)
-			&& (reason != LAF_DLOAD_MODE))
-		__raw_writel(LGE_RB_MAGIC | LGE_LAF_CRASH, RESTART_REASON);
-	else
-		__raw_writel(reason, RESTART_REASON);
-}
-EXPORT_SYMBOL(lge_set_restart_reason);
-
 void lge_set_panic_reason(void)
 {
 	if (subsys_crash_magic == 0)
-		lge_set_restart_reason(LGE_RB_MAGIC | LGE_ERR_KERN);
+		__raw_writel(LGE_RB_MAGIC | LGE_ERR_KERN, RESTART_REASON);
 	else
-		lge_set_restart_reason(subsys_crash_magic);
+		__raw_writel(subsys_crash_magic, RESTART_REASON);
 }
 EXPORT_SYMBOL(lge_set_panic_reason);
+
+void lge_set_restart_reason(unsigned int reason)
+{
+	__raw_writel(reason, RESTART_REASON);
+}
+EXPORT_SYMBOL(lge_set_restart_reason);
+
+static bool lge_crash_handler_skiped = false;
+void lge_check_crash_skiped(char *reason)
+{
+	char *p;
+
+	p = strstr(reason, "AP requested modem reset!!!");
+	if (p)
+		lge_crash_handler_skiped = true;
+}
+EXPORT_SYMBOL(lge_check_crash_skiped);
+
+bool lge_is_crash_skipped(void)
+{
+	return lge_crash_handler_skiped;
+}
+EXPORT_SYMBOL(lge_is_crash_skipped);
+
+void lge_clear_crash_skipped(void)
+{
+	lge_crash_handler_skiped = false;
+};
+EXPORT_SYMBOL(lge_clear_crash_skipped);
 
 static int gen_bug(const char *val, struct kernel_param *kp)
 {
@@ -214,21 +241,21 @@ static int gen_hw_reset(const char *val, struct kernel_param *kp)
 module_param_call(gen_hw_reset, gen_hw_reset, param_get_bool,
 		&dummy_arg, S_IWUSR | S_IRUGO);
 
-static int __init lge_panic_handler_probe(struct platform_device *pdev)
+static int lge_panic_handler_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 
 	return ret;
 }
 
-static int __devexit lge_panic_handler_remove(struct platform_device *pdev)
+static int lge_panic_handler_remove(struct platform_device *pdev)
 {
 	return 0;
 }
 
 static struct platform_driver panic_handler_driver __refdata = {
 	.probe = lge_panic_handler_probe,
-	.remove = __devexit_p(lge_panic_handler_remove),
+	.remove = lge_panic_handler_remove,
 	.driver = {
 		.name = PANIC_HANDLER_NAME,
 		.owner = THIS_MODULE,
