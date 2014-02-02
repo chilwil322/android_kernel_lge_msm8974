@@ -148,3 +148,5 @@ obj-$(CONFIG_LGE_BROADCAST_TDMB) += broadcast/
 
 #1Seg
 obj-$(CONFIG_LGE_BROADCAST_ONESEG) += broadcast/
+
+obj-$(CONFIG_BIF)		+= bif/
