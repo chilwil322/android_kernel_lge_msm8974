@@ -23,14 +23,7 @@
 
 /* Fixed constants first: */
 #undef NR_OPEN
-/*
- * increase INR_OPEN_CUR to 2048
- */
-#ifdef CONFIG_MACH_LGE
-#define INR_OPEN_CUR 2048	/* Initial setting for nfile rlimits */
-#else
 #define INR_OPEN_CUR 1024	/* Initial setting for nfile rlimits */
-#endif
 #define INR_OPEN_MAX 4096	/* Hard limit for nfile rlimits */
 
 #define BLOCK_SIZE_BITS 10
@@ -923,11 +916,9 @@ static inline loff_t i_size_read(const struct inode *inode)
 static inline void i_size_write(struct inode *inode, loff_t i_size)
 {
 #if BITS_PER_LONG==32 && defined(CONFIG_SMP)
-	preempt_disable();
 	write_seqcount_begin(&inode->i_size_seqcount);
 	inode->i_size = i_size;
 	write_seqcount_end(&inode->i_size_seqcount);
-	preempt_enable();
 #elif BITS_PER_LONG==32 && defined(CONFIG_PREEMPT)
 	preempt_disable();
 	inode->i_size = i_size;
