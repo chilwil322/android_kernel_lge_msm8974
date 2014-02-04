@@ -214,10 +214,6 @@ on post-fs-data
 
     rm /data/local/tmp/adreno_config.txt
 
-    # communicate with mpdecision and thermald
-    mkdir /dev/socket/mpdecision 0770 system system
-    chmod 2770 /dev/socket/mpdecision
-
     # time_daemon storage
     mkdir /data/time/ 0700 system system
 
@@ -251,7 +247,6 @@ on post-fs-data
     write /sys/devices/system/cpu/cpu1/online 0
     write /sys/devices/system/cpu/cpu2/online 0
     write /sys/devices/system/cpu/cpu3/online 0
-    start mpdecision
 
     write /sys/devices/virtual/input/lge_touch/touch_gesture 1
     chown root system /sys/devices/platform/tspdrv/nforce_timed
@@ -284,7 +279,6 @@ on property:sys.boot_completed=1
     write /sys/module/pm_8x60/modes/cpu1/retention/idle_enabled 1
     write /sys/module/pm_8x60/modes/cpu2/retention/idle_enabled 1
     write /sys/module/pm_8x60/modes/cpu3/retention/idle_enabled 1
-    start mpdecision
 
 on property:init.svc.wpa_supplicant=stopped
     stop dhcpcd
@@ -350,12 +344,6 @@ service charger /charger
 # virtual sdcard daemon running as media_rw (1023)
 service sdcard /system/bin/sdcard /data/media /mnt/shell/emulated 1023 1023
     class late_start
-
-service mpdecision /system/bin/mpdecision --no_sleep --avg_comp
-   class main
-   user root
-   group root
-   disabled
 
 service qcamerasvr /system/bin/mm-qcamera-daemon
     class late_start
