@@ -3280,16 +3280,6 @@ CONFIG_DEVFREQ_GOV_MSM_ADRENO_TZ=y
 # CONFIG_LGE_BROADCAST_ONESEG_MB86A36K is not set
 
 #
-# LGE Felica selection
-#
-# CONFIG_LGE_FELICA is not set
-# CONFIG_LGE_FELICA_NFC is not set
-# CONFIG_LGE_FELICA_ONLY is not set
-# CONFIG_LGE_FELICA_KDDI is not set
-# CONFIG_LGE_FELICA_NFC_DCM is not set
-# CONFIG_BIF is not set
-
-#
 # File systems
 #
 # CONFIG_EXT2_FS is not set
