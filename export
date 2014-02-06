@@ -1,7 +1,7 @@
 #!/bin/bash
 # export ARCH=arm
 # export CROSS_COMPILE=/home/savoca/toolchains/arm-eabi-4.7.4_linaro/bin/arm-eabi-
-build=/home/savoca/img/builds/aosp
+build=/home/savoca/furnace_output/aosp
 version=0.1.5
 rom="aosp"
 ramdisk=ramdisk
@@ -14,6 +14,7 @@ if [ -f arch/arm/boot/zImage ]; then
 	rm -rf ozip/system/lib/modules
 	mkdir ozip/system/lib/modules
 	find . -name "*.ko" -not -path "ozip/*" -exec cp {} ozip/system/lib/modules \;
+	mv ozip/boot.img out/tmp
 else
 	echo "Nothing has been made..."
 	exit 0
