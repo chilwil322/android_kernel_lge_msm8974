@@ -4,30 +4,22 @@ SERV=/home/dr87
 HOST=$SERV/shared
 KERN=$SERV/dr
 STATE=dr87
-version=v4
-export Meta_tmo=$SERV/g2_k/IMPT/tmo/META-INF
-export Meta_ca=$SERV/g2_k/IMPT/ca/META-INF
-export Meta_att=$SERV/g2_k/IMPT/att/META-INF
-export Meta_vzw=$SERV/g2_k/IMPT/vzw/META-INF
-export Meta_spr=$SERV/g2_k/IMPT/spr/META-INF
-export Meta_intl=$SERV/g2_k/IMPT/intl/META-INF
-export PACKAGEDIR=$SERV/g2_k/kernelwork/g2_out
+version=v1
+export Meta_tmo=$SERV/87kernel/installer/META-INF
+export Meta_ca=$SERV/87kernel/installer/META-INF
+export Meta_att=$SERV/87kernel/installer/META-INF
+export Meta_vzw=$SERV/87kernel/installer/META-INF
+export Meta_spr=$SERV/87kernel/installer/META-INF
+export Meta_intl=$SERV/87kernel/installer/META-INF
+export PACKAGEDIR=$SERV/87kernel/out
 export USE_SEC_FIPS_MODE=true
 export ccache=scripts
 export CCACHE_DIR=/home/dr87/ccache
-export loki=$SERV/g2_k/IMPT/tmp
+export loki=$SERV/87kernel/tmp
 export ARCH=arm
 export PATH=${PATH}:$SERV/4.7/bin/
 export CROSS_COMPILE=arm-eabi-
 ramdisk=ramdisk
-
-echo "Checking out"
-git checkout kkdev
-
-echo "Check for updates"
-git pull
-
-./$ccache/ccache -M 1000G
 
 echo "Remove old Package Files"
 if [[ ! -d $PACKAGEDIR ]]; then
@@ -41,29 +33,26 @@ rm -rf $PACKAGEDIR/*
 fi
 
 
-select CHOICE in att tmo intl ca spr vzw cm
+select CHOICE in d800 d801 d802 d803 ls980 vs980
 do
 case "$CHOICE" in
-    "att")
+    "d800")
          config=d800_defconfig
          break;;
-    "tmo")
+    "d801")
          config=d801_defconfig
          break;;
-    "intl")
+    "d802")
          config=d802_defconfig
          break;;
-    "ca")
+    "d803")
          config=d803_defconfig
          break;;
-    "spr")
+    "ls980")
          config=ls980_defconfig
          break;;
-    "vzw")
+    "vs980")
          config=vs980_defconfig
-         break;;
-    "cm")
-         . $KERN/cm_PAEK
          break;;
   esac
 done
@@ -74,8 +63,7 @@ then
     then
 	echo "--- Cleaning up ---"
 	rm -rf out
-	make clean
-        make mrproper
+	make mrproper
     fi
 
 	mkdir -p $KERN/out/kernel
@@ -155,10 +143,10 @@ fi
         mv $KERN/out/system/lib/modules/* $PACKAGEDIR/system/lib/modules
 
 	cd $PACKAGEDIR
-	rm $SERV/ATT*.zip
-	zip -r ../ATT-$STATE-$version-$curdate.zip .
-	mv ../ATT-$STATE-$version-$curdate.zip $SERV
-        touch $SERV/g2_k/1
+	rm $SERV/d800*.zip
+	zip -r ../d800-$STATE-$version.zip .
+	mv ../d800-$STATE-$version.zip $SERV
+        touch $SERV/87kernel/1
 
   elif  [ $config = "d801_defconfig" ]; then
 	mv out/boot.img $PACKAGEDIR
@@ -174,14 +162,14 @@ fi
         mv $KERN/out/system/lib/modules/* $PACKAGEDIR/system/lib/modules
 
 	cd $PACKAGEDIR
-	rm $SERV/TMO*.zip
-	zip -r ../TMO-$STATE-$version-$curdate.zip .
-	mv ../TMO-$STATE-$version-$curdate.zip $SERV
+	rm $SERV/d801*.zip
+	zip -r ../d801-$STATE-$version.zip .
+	mv ../d801-$STATE-$version.zip $SERV
 
 
-        if [ -f $SERV/g2_k/1 ]; then
-           rm $SERV/g2_k/1
-           touch $SERV/g2_k/2
+        if [ -f $SERV/87kernel/1 ]; then
+           rm $SERV/87kernel/1
+           touch $SERV/87kernel/2
         fi
 
   elif [ $config = "d802_defconfig" ]; then
@@ -199,13 +187,13 @@ fi
         mv $KERN/out/system/lib/modules/* $PACKAGEDIR/system/lib/modules
 
 	cd $PACKAGEDIR
-	rm $SERV/INTL*.zip
-	zip -r ../INTL-$STATE-$version-$curdate.zip .
-	mv ../INTL-$STATE-$version-$curdate.zip $SERV
+	rm $SERV/d802*.zip
+	zip -r ../d802-$STATE-$version.zip .
+	mv ../d802-$STATE-$version.zip $SERV
 
-        if [ -f $SERV/g2_k/2 ]; then
-          rm $SERV/g2_k/2
-          touch $SERV/g2_k/3
+        if [ -f $SERV/87kernel/2 ]; then
+          rm $SERV/87kernel/2
+          touch $SERV/87kernel/3
         fi
 
   elif [ $config = "d803_defconfig" ]; then
@@ -223,13 +211,13 @@ fi
         mv $KERN/out/system/lib/modules/* $PACKAGEDIR/system/lib/modules
 
 	cd $PACKAGEDIR
-	rm $SERV/CA*.zip
-	zip -r ../CA-$STATE-$version-$curdate.zip .
-	mv ../CA-$STATE-$version-$curdate.zip $SERV
+	rm $SERV/d803*.zip
+	zip -r ../d803-$STATE-$version.zip .
+	mv ../d803-$STATE-$version.zip $SERV
 
-        if [ -f $SERV/g2_k/3 ]; then
-          rm $SERV/g2_k/3
-          touch $SERV/g2_k/4
+        if [ -f $SERV/87kernel/3 ]; then
+          rm $SERV/87kernel/3
+          touch $SERV/87kernel/4
         fi
 
   elif [ $config = "ls980_defconfig" ]; then
@@ -247,13 +235,13 @@ fi
         mv $KERN/out/system/lib/modules/* $PACKAGEDIR/system/lib/modules
 
 	cd $PACKAGEDIR
-	rm $SERV/SPR*.zip
-	zip -r ../SPR-$STATE-$version-$curdate.zip .
-	mv ../SPR-$STATE-$version-$curdate.zip $SERV
+	rm $SERV/ls980*.zip
+	zip -r ../ls980-$STATE-$version.zip .
+	mv ../ls980-$STATE-$version.zip $SERV
 
-        if [ -f $SERV/g2_k/4 ]; then
-          rm $SERV/g2_k/4
-          touch $SERV/g2_k/5
+        if [ -f $SERV/87kernel/4 ]; then
+          rm $SERV/87kernel/4
+          touch $SERV/87kernel/5
         fi
 
   elif [ $config = "vs980_defconfig" ]; then
@@ -270,13 +258,13 @@ fi
         mv $KERN/out/system/lib/modules/* $PACKAGEDIR/system/lib/modules
 
 	cd $PACKAGEDIR
-	rm $SERV/VZW*.zip
-	zip -r ../VZW-$STATE-$version-$curdate.zip .
-	mv ../VZW-$STATE-$version-$curdate.zip $SERV
+	rm $SERV/vs980*.zip
+	zip -r ../vs980-$STATE-$version.zip .
+	mv ../vs980-$STATE-$version.zip $SERV
 
-        if [ -f $SERV/g2_k/5 ]; then
-          rm $SERV/g2_k/5
-          touch $SERV/g2_k/all
+        if [ -f $SERV/87kernel/5 ]; then
+          rm $SERV/87kernel/5
+          touch $SERV/87kernel/all
         fi
 
   else
@@ -286,7 +274,7 @@ fi
 
 sleep 2
 
-if [ -f $SERV/g2_k/all ]; then
+if [ -f $SERV/87kernel/all ]; then
    echo "Do you want to upload to server?"
    echo -n " "
    read usr
@@ -300,9 +288,9 @@ if [ -f $SERV/g2_k/all ]; then
       fi
 
       mv $SERV/*-$STATE-$version-$curdate.zip $HOST
-      rm $SERV/g2_k/all
+      rm $SERV/87kernel/all
    elif [[ $usr = p || $usr = P ]]; then
-      mv $SERV/g2_k/TMO-$STATE-$version-$curdate.zip $HOST/.private
+      mv $SERV/87kernel/TMO-$STATE-$version-$curdate.zip $HOST/.private
    fi
    else
       exit 0
