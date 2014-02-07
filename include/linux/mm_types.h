@@ -126,9 +126,12 @@ struct page {
 			short int pobjects;
 #endif
 		};
+
+		struct list_head list;	/* slobs list of pages */
+		struct slab *slab_page; /* slab fields */
 	};
 
-	/* Remainder is not double word aligned */
+/* Remainder is not double word aligned */
 	union {
 		unsigned long private;		/* Mapping-private opaque data:
 					 	 * usually used for buffer_heads
@@ -140,7 +143,7 @@ struct page {
 #if USE_SPLIT_PTLOCKS
 		spinlock_t ptl;
 #endif
-		struct kmem_cache *slab;	/* SLUB: Pointer to slab */
+		struct kmem_cache *slab_cache;	/* SL[AU]B: Pointer to slab */
 		struct page *first_page;	/* Compound tail pages */
 	};
 
