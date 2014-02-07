@@ -32,6 +32,7 @@ enum {
 	MAX_AFE_CAL_TYPES
 };
 
+
 struct afe_ctl {
 	void *apr;
 	atomic_t state;
@@ -58,7 +59,6 @@ struct afe_ctl {
 
 static atomic_t afe_ports_mad_type[SLIMBUS_PORT_LAST - SLIMBUS_0_RX];
 static unsigned long afe_configured_cmd;
-
 
 static struct afe_ctl this_afe;
 
@@ -186,14 +186,15 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			pr_debug("%s: mmap_handle: 0x%x, cal index %d\n",
 				 __func__, payload[0],
 				 atomic_read(&this_afe.mem_map_cal_index));
-	        if (atomic_read(&this_afe.mem_map_cal_index) != -1) {
+			if (atomic_read(&this_afe.mem_map_cal_index) != -1) {
 				atomic_set(&this_afe.mem_map_cal_handles[
-					atomic_read(&this_afe.mem_map_cal_index)],
+					atomic_read(
+					&this_afe.mem_map_cal_index)],
 					(uint32_t)payload[0]);
-			} else{
+			} else {
 				this_afe.mmap_handle = (uint32_t)payload[0];
 				pr_debug("%s: mmap handle 0x%x\n",
-                   __func__, this_afe.mmap_handle);
+					__func__, this_afe.mmap_handle);
 			}
 			atomic_set(&this_afe.state, 0);
 			wake_up(&this_afe.wait[data->token]);
@@ -225,29 +226,6 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 	return 0;
 }
 
-int afe_unmap_cal_blocks(void)
-{
-	int				i;
-	int				result = 0;
-
-	for (i = 0; i < MAX_AFE_CAL_TYPES; i++) {
-		if (atomic_read(&this_afe.mem_map_cal_handles[i]) != 0) {
-
-			atomic_set(&this_afe.mem_map_cal_index, i);
-			result = afe_cmd_memory_unmap(atomic_read(
-				&this_afe.mem_map_cal_handles[i]));
-			if (result < 0)
-				pr_err("%s: unmap failed, err %d\n",
-					__func__, result);
-			atomic_set(&this_afe.mem_map_cal_index, -1);
-
-			this_afe.afe_cal_addr[i].cal_paddr = 0;
-			this_afe.afe_cal_addr[i].cal_size = 0;
-			atomic_set(&this_afe.mem_map_cal_handles[i], 0);
-		}
-	}
-	return result;
-}
 
 int afe_get_port_type(u16 port_id)
 {
@@ -382,8 +360,7 @@ static int afe_apr_send_pkt(void *data, wait_queue_head_t *wait)
 {
 	int ret;
 
-	if (wait)
-		atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.state, 1);
 	atomic_set(&this_afe.status, 0);
 	ret = apr_send_pkt(this_afe.apr, data);
 	if (ret > 0) {
@@ -415,6 +392,7 @@ static void afe_send_cal_block(int32_t path, u16 port_id)
 	struct acdb_cal_block				cal_block;
 	struct afe_audioif_config_command_no_payload	afe_cal;
 	atomic_t *hptr;
+	u32 handle;
 
 	pr_debug("%s: path %d\n", __func__, path);
 	if (path == AFE_AANC_TX_CAL) {
@@ -433,10 +411,16 @@ static void afe_send_cal_block(int32_t path, u16 port_id)
 		atomic_set(&this_afe.mem_map_cal_index, path);
 		if (this_afe.afe_cal_addr[path].cal_paddr != 0) {
 			hptr = &this_afe.mem_map_cal_handles[path];
-			result = afe_cmd_memory_unmap(atomic_xchg(hptr, 0));
+			handle = atomic_xchg(hptr, 0);
+			if (!handle) {
+				pr_err("%s: invalid NULL handle\n", __func__);
+				result = -EINVAL;
+				goto done;
+			}
+			result = afe_cmd_memory_unmap(handle);
 			if (result) {
-				WARN(1, "%s: AFE memory unmap failed %d\n",
-				     __func__, result);
+				WARN(1, "%s: AFE memory unmap failed %d, handle 0x%x\n",
+				     __func__, result, handle);
 				atomic_set(&this_afe.mem_map_cal_index, -1);
 				goto done;
 			}
@@ -486,6 +470,30 @@ static void afe_send_cal_block(int32_t path, u16 port_id)
 			 path);
 done:
 	return;
+}
+
+int afe_unmap_cal_blocks(void)
+{
+	int				i;
+	int				result = 0;
+
+	for (i = 0; i < MAX_AFE_CAL_TYPES; i++) {
+		if (atomic_read(&this_afe.mem_map_cal_handles[i]) != 0) {
+
+			atomic_set(&this_afe.mem_map_cal_index, i);
+			result = afe_cmd_memory_unmap(atomic_read(
+				&this_afe.mem_map_cal_handles[i]));
+			if (result < 0)
+				pr_err("%s: unmap failed, err %d\n",
+					__func__, result);
+			atomic_set(&this_afe.mem_map_cal_index, -1);
+
+			this_afe.afe_cal_addr[i].cal_paddr = 0;
+			this_afe.afe_cal_addr[i].cal_size = 0;
+			atomic_set(&this_afe.mem_map_cal_handles[i], 0);
+		}
+	}
+	return result;
 }
 
 static int afe_spk_prot_prepare(int port, int param_id,
@@ -1154,9 +1162,6 @@ static int afe_send_cmd_port_start(u16 port_id)
 	if (ret) {
 		pr_err("%s: AFE enable for port %#x failed %d\n", __func__,
 		       port_id, ret);
-#ifdef CONFIG_MACH_MSM8974_VU3_KR
-		panic("AFE enable for port failed by vu3 audio team");
-#endif		
 	} else if (this_afe.task != current) {
 		this_afe.task = current;
 		pr_debug("task_name = %s pid = %d\n",
@@ -1354,11 +1359,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	if (ret) {
 		pr_err("%s: AFE enable for port %#x failed\n", __func__,
 				port_id);
-#ifdef CONFIG_MACH_MSM8974_VU3_KR
-		panic("AFE enable for port failed by vu3 audio team");
-#endif
 		goto fail_cmd;
-
 	} else if (atomic_read(&this_afe.status) != 0) {
 		pr_err("%s: config cmd failed\n", __func__);
 		ret = -EINVAL;
@@ -2031,11 +2032,7 @@ int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz)
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-if (atomic_read(&this_afe.status) != 0) {
-       pr_err("%s: Memory map cmd failed\n", __func__);
-       ret = -EINVAL;
-       goto fail_cmd;
-   }
+
 	kfree(mmap_region_cmd);
 	return 0;
 fail_cmd:
@@ -2805,14 +2802,7 @@ int afe_close(int port_id)
 	uint16_t port_index;
 
 	if (this_afe.apr == NULL) {
-		pr_err("%s: AFE is already closed\n", __func__);
-		if ((port_id == RT_PROXY_DAI_001_RX) ||
-		    (port_id == RT_PROXY_DAI_002_TX))
-			pcm_afe_instance[port_id & 0x1] = 0;
-		if ((port_id == RT_PROXY_DAI_002_RX) ||
-		    (port_id == RT_PROXY_DAI_001_TX))
-			proxy_afe_instance[port_id & 0x1] = 0;
-		afe_close_done[port_id & 0x1] = true;
+		pr_err("AFE is already closed\n");
 		ret = -EINVAL;
 		goto fail_cmd;
 	}

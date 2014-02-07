@@ -770,18 +770,12 @@ static void wcd9xxx_insert_detect_setup(struct wcd9xxx_mbhc *mbhc, bool ins)
 		 ins ? "insert" : "removal");
 	/* Disable detection to avoid glitch */
 	snd_soc_update_bits(mbhc->codec, WCD9XXX_A_MBHC_INSERT_DETECT, 1, 0);
-
-#ifdef CONFIG_MACH_LGE
-	snd_soc_write(mbhc->codec, WCD9XXX_A_MBHC_INSERT_DETECT,
-		      (0x6c | (ins ? (1 << 1) : 0)));
-#else /* QCT original */
 	if (mbhc->mbhc_cfg->gpio_level_insert)
 		snd_soc_write(mbhc->codec, WCD9XXX_A_MBHC_INSERT_DETECT,
 			      (0x68 | (ins ? (1 << 1) : 0)));
 	else
 		snd_soc_write(mbhc->codec, WCD9XXX_A_MBHC_INSERT_DETECT,
 			      (0x6C | (ins ? (1 << 1) : 0)));
-#endif
 	/* Re-enable detection */
 	snd_soc_update_bits(mbhc->codec, WCD9XXX_A_MBHC_INSERT_DETECT, 1, 1);
 }
@@ -2344,11 +2338,7 @@ static void wcd9xxx_swch_irq_handler(struct wcd9xxx_mbhc *mbhc)
 
 	mbhc->in_swch_irq_handler = true;
 	/* Wait here for debounce time */
-#ifdef CONFIG_MACH_LGE
-	usleep(mbhc->mbhc_cfg->debounce_time_us);
-#else
 	usleep_range(SWCH_IRQ_DEBOUNCE_TIME_US, SWCH_IRQ_DEBOUNCE_TIME_US);
-#endif
 
 	WCD9XXX_BCL_LOCK(mbhc->resmgr);
 
@@ -2435,14 +2425,8 @@ static irqreturn_t wcd9xxx_mech_plug_detect_irq(int irq, void *data)
 		r = IRQ_NONE;
 	} else {
 		/* Call handler */
-#ifdef CONFIG_MACH_LGE
-		disable_irq(mbhc->mbhc_cfg->gpio_irq);
-#endif
 		wcd9xxx_swch_irq_handler(mbhc);
 		wcd9xxx_unlock_sleep(mbhc->resmgr->core);
-#ifdef CONFIG_MACH_LGE
-		enable_irq(mbhc->mbhc_cfg->gpio_irq);
-#endif
 	}
 
 	pr_debug("%s: leave %d\n", __func__, r);
@@ -3735,11 +3719,10 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 
 	core = mbhc->resmgr->core;
 
-#ifdef CONFIG_MACH_LGE
-if( !mbhc_enabled )
-	goto skip;
-#endif
-    ret = wcd9xxx_request_irq(core, WCD9XXX_IRQ_MBHC_INSERTION,
+	if (is_mbhc_disabled())
+		goto skip;
+
+	ret = wcd9xxx_request_irq(core, WCD9XXX_IRQ_MBHC_INSERTION,
 				  wcd9xxx_hs_insert_irq,
 				  "Headset insert detect", mbhc);
 	if (ret) {
@@ -3775,6 +3758,8 @@ if( !mbhc_enabled )
 			WCD9XXX_IRQ_MBHC_RELEASE);
 		goto err_release_irq;
 	}
+
+skip :
 	ret = wcd9xxx_request_irq(core, WCD9XXX_IRQ_HPH_PA_OCPL_FAULT,
 				  wcd9xxx_hphl_ocp_irq, "HPH_L OCP detect",
 				  mbhc);
@@ -3794,9 +3779,7 @@ if( !mbhc_enabled )
 		goto err_hphr_ocp_irq;
 	}
 	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
-#ifdef CONFIG_MACH_LGE
-skip :
-#endif
+
 	pr_debug("%s: leave ret %d\n", __func__, ret);
 	return ret;
 
