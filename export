@@ -3,7 +3,7 @@
 # export CROSS_COMPILE=/home/savoca/toolchains/arm-eabi-4.7.4_linaro/bin/arm-eabi-
 build=/home/savoca/furnace_output/aosp
 version=0.1.5
-rom="aosp"
+rom="aosp-OC"
 ramdisk=ramdisk
 rm -rf out
 mkdir out
