@@ -51,7 +51,7 @@ static struct snd_pcm_hardware msm_pcm_hardware = {
 
 	.fifo_size =            0,
 };
-static bool is_volte(struct msm_voice *pvolte)
+static int is_volte(struct msm_voice *pvolte)
 {
 	if (pvolte == &voice_info[VOLTE_SESSION_INDEX])
 		return true;
@@ -59,17 +59,9 @@ static bool is_volte(struct msm_voice *pvolte)
 		return false;
 }
 
-static bool is_voice2(struct msm_voice *pvoice2)
+static int is_voice2(struct msm_voice *pvoice2)
 {
 	if (pvoice2 == &voice_info[VOICE2_SESSION_INDEX])
-		return true;
-	else
-		return false;
-}
-
-static bool is_qchat(struct msm_voice *pqchat)
-{
-	if (pqchat == &voice_info[QCHAT_SESSION_INDEX])
 		return true;
 	else
 		return false;
@@ -83,8 +75,6 @@ static uint32_t get_session_id(struct msm_voice *pvoc)
 		session_id = voc_get_session_id(VOLTE_SESSION_NAME);
 	else if (is_voice2(pvoc))
 		session_id = voc_get_session_id(VOICE2_SESSION_NAME);
-	else if (is_qchat(pvoc))
-		session_id = voc_get_session_id(QCHAT_SESSION_NAME);
 	else
 		session_id = voc_get_session_id(VOICE_SESSION_NAME);
 
@@ -97,7 +87,7 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *prtd = runtime->private_data;
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 
 	if (!prtd->playback_start)
 		prtd->playback_start = 1;
@@ -110,7 +100,7 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *prtd = runtime->private_data;
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 
 	if (!prtd->capture_start)
 		prtd->capture_start = 1;
@@ -124,19 +114,15 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 
 	if (!strncmp("VoLTE", substream->pcm->id, 5)) {
 		voice = &voice_info[VOLTE_SESSION_INDEX];
-		pr_info("%s: Open VoLTE Substream Id=%s\n",
+		pr_debug("%s: Open VoLTE Substream Id=%s\n",
 			 __func__, substream->pcm->id);
 	} else if (!strncmp("Voice2", substream->pcm->id, 6)) {
 		voice = &voice_info[VOICE2_SESSION_INDEX];
-		pr_info("%s: Open Voice2 Substream Id=%s\n",
-			 __func__, substream->pcm->id);
-	} else if (!strncmp("QCHAT", substream->pcm->id, 5)) {
-		voice = &voice_info[QCHAT_SESSION_INDEX];
-		pr_info("%s: Open QCHAT Substream Id=%s\n",
+		pr_debug("%s: Open Voice2 Substream Id=%s\n",
 			 __func__, substream->pcm->id);
 	} else {
 		voice = &voice_info[VOICE_SESSION_INDEX];
-		pr_info("%s: Open VOICE Substream Id=%s\n",
+		pr_debug("%s: Open VOICE Substream Id=%s\n",
 			 __func__, substream->pcm->id);
 	}
 	mutex_lock(&voice->lock);
@@ -149,7 +135,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		voice->capture_substream = substream;
 
 	voice->instance++;
-	pr_info("%s: Instance = %d, Stream ID = %s\n",
+	pr_debug("%s: Instance = %d, Stream ID = %s\n",
 			__func__ , voice->instance, substream->pcm->id);
 	runtime->private_data = voice;
 
@@ -162,7 +148,7 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *prtd = runtime->private_data;
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 
 	if (prtd->playback_start)
 		prtd->playback_start = 0;
@@ -176,7 +162,7 @@ static int msm_pcm_capture_close(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *prtd = runtime->private_data;
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 
 	if (prtd->capture_start)
 		prtd->capture_start = 0;
@@ -200,7 +186,7 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 
 	prtd->instance--;
 	if (!prtd->playback_start && !prtd->capture_start) {
-		pr_info("end voice call\n");
+		pr_debug("end voice call\n");
 
 		session_id = get_session_id(prtd);
 		if (session_id)
@@ -238,7 +224,7 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params)
 {
 
-	pr_info("%s: Voice\n", __func__);
+	pr_debug("%s: Voice\n", __func__);
 
 	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
 
@@ -252,18 +238,18 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	struct msm_voice *prtd = runtime->private_data;
 	uint32_t session_id = 0;
 
-	pr_info("%s: cmd = %d\n", __func__, cmd);
+	pr_debug("%s: cmd = %d\n", __func__, cmd);
 
 	session_id = get_session_id(prtd);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_STOP:
-		pr_info("Start & Stop Voice call not handled in Trigger.\n");
+		pr_debug("Start & Stop Voice call not handled in Trigger.\n");
 	break;
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		pr_info("%s: resume call session_id = %d\n", __func__,
+		pr_debug("%s: resume call session_id = %d\n", __func__,
 			 session_id);
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 			ret = msm_pcm_playback_prepare(substream);
@@ -276,7 +262,7 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	break;
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		pr_info("%s: pause call session_id=%d\n",
+		pr_debug("%s: pause call session_id=%d\n",
 			 __func__, session_id);
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			if (prtd->playback_start)
@@ -300,7 +286,7 @@ static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *prtd = runtime->private_data;
-	uint32_t session_id = get_session_id(prtd);
+	uint16_t session_id = get_session_id(prtd);
 	enum voice_lch_mode lch_mode;
 	int ret = 0;
 
@@ -315,7 +301,7 @@ static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 			break;
 		}
 
-		pr_info("%s: %s lch_mode:%d\n",
+		pr_debug("%s: %s lch_mode:%d\n",
 			 __func__, substream->pcm->id, lch_mode);
 
 		switch (lch_mode) {
@@ -332,7 +318,7 @@ static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 
 		break;
 	default:
-		pr_info("%s: Falling into default snd_lib_ioctl cmd 0x%x\n",
+		pr_debug("%s: Falling into default snd_lib_ioctl cmd 0x%x\n",
 			 __func__, cmd);
 
 		ret = snd_pcm_lib_ioctl(substream, cmd, arg);
@@ -340,7 +326,7 @@ static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 	}
 
 	if (!ret)
-		pr_info("%s: ret %d\n", __func__, ret);
+		pr_debug("%s: ret %d\n", __func__, ret);
 	else
 		pr_err("%s: cmd 0x%x failed %d\n", __func__, cmd, ret);
 
@@ -363,7 +349,7 @@ static int msm_voice_gain_put(struct snd_kcontrol *kcontrol,
 		goto done;
 	}
 
-	pr_info("%s: volume: %d session_id: %#x ramp_duration: %d\n", __func__,
+	pr_debug("%s: volume: %d session_id: %#x ramp_duration: %d\n", __func__,
 		volume, session_id, ramp_duration);
 
 	voc_set_rx_vol_step(session_id, RX_PATH, volume, ramp_duration);
@@ -388,7 +374,7 @@ static int msm_voice_mute_put(struct snd_kcontrol *kcontrol,
 		goto done;
 	}
 
-	pr_info("%s: mute=%d session_id=%#x ramp_duration=%d\n", __func__,
+	pr_debug("%s: mute=%d session_id=%#x ramp_duration=%d\n", __func__,
 		mute, session_id, ramp_duration);
 
 	voc_set_tx_mute(session_id, TX_PATH, mute, ramp_duration);
@@ -396,6 +382,7 @@ static int msm_voice_mute_put(struct snd_kcontrol *kcontrol,
 done:
 	return ret;
 }
+
 
 static int msm_voice_rx_device_mute_put(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
@@ -413,7 +400,7 @@ static int msm_voice_rx_device_mute_put(struct snd_kcontrol *kcontrol,
 		goto done;
 	}
 
-	pr_info("%s: mute=%d session_id=%#x ramp_duration=%d\n", __func__,
+	pr_debug("%s: mute=%d session_id=%#x ramp_duration=%d\n", __func__,
 		mute, session_id, ramp_duration);
 
 	voc_set_rx_device_mute(session_id, mute, ramp_duration);
@@ -442,7 +429,7 @@ static int msm_voice_tty_mode_put(struct snd_kcontrol *kcontrol,
 {
 	int tty_mode = ucontrol->value.integer.value[0];
 
-	pr_info("%s: tty_mode=%d\n", __func__, tty_mode);
+	pr_debug("%s: tty_mode=%d\n", __func__, tty_mode);
 
 	voc_set_tty_mode(voc_get_session_id(VOICE_SESSION_NAME), tty_mode);
 	voc_set_tty_mode(voc_get_session_id(VOICE2_SESSION_NAME), tty_mode);
@@ -457,7 +444,7 @@ static int msm_voice_slowtalk_put(struct snd_kcontrol *kcontrol,
 	int st_enable = ucontrol->value.integer.value[0];
 	uint32_t session_id = ucontrol->value.integer.value[1];
 
-	pr_info("%s: st enable=%d session_id=%#x\n", __func__, st_enable,
+	pr_debug("%s: st enable=%d session_id=%#x\n", __func__, st_enable,
 		 session_id);
 
 	voc_set_pp_enable(session_id,
@@ -515,36 +502,12 @@ static struct snd_soc_platform_driver msm_soc_platform = {
 
 static __devinit int msm_pcm_probe(struct platform_device *pdev)
 {
-	int rc;
-
-	if (!is_voc_initialized()) {
-		pr_info("%s: voice module not initialized yet, deferring probe()\n",
-		       __func__);
-
-		rc = -EPROBE_DEFER;
-		goto done;
-	}
-
-	rc = voc_alloc_cal_shared_memory();
-	if (rc == -EPROBE_DEFER) {
-		pr_info("%s: memory allocation for calibration deferred %d\n",
-			 __func__, rc);
-
-		goto done;
-	} else if (rc < 0) {
-		pr_err("%s: memory allocation for calibration failed %d\n",
-		       __func__, rc);
-	}
-
 	if (pdev->dev.of_node)
 		dev_set_name(&pdev->dev, "%s", "msm-pcm-voice");
 
-	pr_info("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
-	rc = snd_soc_register_platform(&pdev->dev,
-				       &msm_soc_platform);
-
-done:
-	return rc;
+	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
+	return snd_soc_register_platform(&pdev->dev,
+				   &msm_soc_platform);
 }
 
 static int msm_pcm_remove(struct platform_device *pdev)
