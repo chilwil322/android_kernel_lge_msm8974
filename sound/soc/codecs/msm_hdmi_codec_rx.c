@@ -88,6 +88,7 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 	u32 channel_allocation = 0;
 	u32 level_shift  = 0; /* 0dB */
 	bool down_mix = 0;
+	int ret = 0;
 	u32 num_channels = params_channels(params);
 
 	struct msm_hdmi_audio_codec_rx_data *codec_data =
@@ -116,7 +117,7 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 			params_rate(params), num_channels, channel_allocation,
 			level_shift, down_mix);
 
-	return 0;
+	return ret;
 }
 
 static struct snd_soc_dai_ops msm_hdmi_audio_codec_rx_dai_ops = {

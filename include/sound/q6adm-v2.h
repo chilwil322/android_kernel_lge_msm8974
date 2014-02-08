@@ -43,6 +43,7 @@ int adm_multi_ch_copp_open(int port, int path, int rate, int mode,
 
 int adm_unmap_cal_blocks(void);
 
+
 int adm_memory_map_regions(int port_id, uint32_t *buf_add, uint32_t mempool_id,
 				uint32_t *bufsz, uint32_t bufcnt);
 
@@ -57,7 +58,10 @@ int adm_connect_afe_port(int mode, int session_id, int port_id);
 
 void adm_ec_ref_rx_id(int  port_id);
 
+#ifdef CONFIG_RTAC
 int adm_get_copp_id(int port_id);
+int adm_get_lowlatency_copp_id(int port_id);
+#endif
 
 void adm_set_multi_ch_map(char *channel_map);
 
