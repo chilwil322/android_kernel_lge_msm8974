@@ -8,9 +8,6 @@
 #define SYNC_URBS	4	/* always four urbs for sync */
 #define MAX_QUEUE	24	/* try not to exceed this queue length, in ms */
 
-#define BIT_USB_HEADSET_ANLG 1  /* analog usb headset uevent switch state */
-#define BIT_USB_HEADSET_DGTL 2  /* digital usb headset uevent switch state */
-
 struct audioformat {
 	struct list_head list;
 	u64 formats;			/* ALSA format bits */
@@ -90,7 +87,6 @@ struct snd_usb_substream {
 	struct snd_urb_ctx syncurb[SYNC_URBS];	/* sync urb table */
 	char *syncbuf;				/* sync buffer for all sync URBs */
 	dma_addr_t sync_dma;			/* DMA address of syncbuf */
-	unsigned int speed;		/* USB_SPEED_XXX */
 
 	u64 formats;			/* format bitmasks (all or'ed) */
 	unsigned int num_formats;		/* number of supported audio formats (list) */

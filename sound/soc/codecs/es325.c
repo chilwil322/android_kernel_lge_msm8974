@@ -10,7 +10,6 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
 #define DEBUG
 #define CONFIG_HRTIMER_SLEEP_DELAYED
 
@@ -199,6 +198,7 @@ static int is_fw_download = 0;
 static int es325_codec_sleep_delay_get_time(struct timed_output_dev *dev);
 static void es325_codec_sleep_delay_enable(struct timed_output_dev *timed_dev, int value);
 static enum hrtimer_restart es325_codec_sleep_delay_timer_func(struct hrtimer *timer);
+static int es325_bootup(struct es325_priv *es325);
 
 static struct timed_output_dev sleep_delay = {
 	.name = "es325_sleep_delay",
@@ -219,6 +219,7 @@ enum {
 	ES325_TWO_MIC_FT_VOLTE,
 	ES325_TWO_MIC_CT_VOIP,
 	ES325_TWO_MIC_FT_VOIP,
+	ES325_TWO_MIC_CT_VEQ,
 	ES325_ONE_MIC_HEADSET,
 	ES325_ONE_CH_MUSIC_PLAYBACK,
 	ES325_TWO_CH_MUSIC_PLAYBACK,
@@ -301,6 +302,11 @@ static u8 es325_internal_route_configs[ES325_STOP+1][60] = {
 	0x90, 0x31, 0x00, 0x03, /* Route Preset */
 	0x90, 0x31, 0x00, 0x29, /* Algo Preset */
 	0xff					/* End of Command */
+	},
+	{ // ES325_TWO_MIC_CT_VEQ,
+	0x90, 0x31, 0x00, 0x01,
+	0x90, 0x31, 0x00, 0x1B,
+	0xff
 	},
 	{ // ES325_ONE_MIC_HEADSET 1-Mic Headset
 	0x90, 0x31, 0x00, 0x04, /* Route Preset */
@@ -1165,7 +1171,7 @@ static int es325_slim_read(struct es325_priv *es325, unsigned int offset,
 		mdelay(ES325_RD_POLL_INTV);
 	}
 	if (try >= ES325_RD_POLL_MAX && memcmp(buf, notready, 4) == 0) {
-		pr_err("%s: failed not ready after %d tries\n", __func__, try);
+		pr_err("%s: failed not ready after %d tries, rc=%d\n", __func__, try, rc);
 		rc = -EIO;
 	}
 
@@ -1469,6 +1475,51 @@ static int es325_write(struct snd_soc_codec *codec, unsigned int reg,
 	}
 
 	return rc;
+}
+
+static void es325_hard_reset(void)
+{
+	int rc;
+	struct es325_priv *es325 = &es325_priv;
+	const char *filename = "audience-es325-fw.aud";
+
+	gpio_direction_output(es325->pdata->reset_gpio, 0);
+	gpio_direction_output(es325->pdata->wakeup_gpio, 0);
+	msleep(10);
+
+	gpio_direction_output(es325->pdata->reset_gpio, 1);
+	gpio_direction_output(es325->pdata->wakeup_gpio, 1);
+	mdelay(30);
+
+	rc = request_firmware((const struct firmware **)&es325_priv.fw,
+				filename, &es325->gen0_client->dev);
+	if (rc) {
+		dev_err(&es325->gen0_client->dev,
+				"%s(): request_firmware(%s) failed %d\n",
+				__func__, filename, rc);
+		goto request_firmware_error;
+	}
+	es325_bootup(es325);
+	release_firmware(es325->fw);
+request_firmware_error:
+
+	return;
+}
+
+static ssize_t es325_fw_reload_set(struct device *dev,
+				struct device_attribute *attr, const char *buf, size_t count)
+{
+	int rc;
+
+	rc = clk_prepare_enable(xo_handle_a2);
+	if (IS_ERR_VALUE(rc)) {
+		rc = PTR_ERR(xo_handle_a2);
+		pr_err("%s: Failed to enable the msm_xo_mode_vote(%d)\n", __func__, rc);
+		clk_put(xo_handle_a2);
+	}
+
+	es325_hard_reset();
+	return count;
 }
 
 static ssize_t es325_route_status_show(struct device *dev,
@@ -1878,7 +1929,8 @@ static struct device_attribute es325_device_attrs[] = {
 			es325_sleep_test_show,	es325_sleep_test_set),
 	__ATTR(mic_sealed,	S_IRUGO|S_IWUSR, \
 			es325_mic_sealed_show,	es325_mic_sealed_set),
-
+	__ATTR(fw_reload,    S_IWUSR, \
+			NULL,   es325_fw_reload_set),
 };
 
 
@@ -2376,6 +2428,7 @@ static enum hrtimer_restart es325_codec_sleep_delay_timer_func(struct hrtimer *t
 
 int es325_codec_wakeup(void)
 {
+	int recover_es325_cnt = 0;
 	unsigned int offset = ES325_WRITE_VE_OFFSET;
 	unsigned int width = ES325_WRITE_VE_WIDTH;
 	char msg[16];
@@ -2404,6 +2457,8 @@ int es325_codec_wakeup(void)
 		pr_err("%s: Failed to enable the msm_xo_mode_vote(%d)\n", __func__, rc);
 		goto EXIT_WAKEUP;
 	}
+
+retry:
 	usleep_range(800, 1000);
 	/* Wakeup signal H -> L. */
 	ret = gpio_direction_output(es325->pdata->wakeup_gpio, 0);
@@ -2455,8 +2510,14 @@ EXIT_WAKEUP_NOGPIO:
 	if (rc == 0) {
 		dev_info(dev, "Wakeup successful.\n");
 		es325->power_state = ES325_POWER_AWAKE;
-	} else
+	} else {
 		dev_err(dev, "Wakeup FAILED.\n");
+		if (recover_es325_cnt == 0) {
+			es325_hard_reset();
+			recover_es325_cnt = 1;
+			goto retry;
+		}
+	}
 
 	mutex_unlock(&es325->power_lock);
 
@@ -2475,11 +2536,14 @@ static int es325_put_control_value(struct snd_kcontrol *kcontrol,
 	unsigned int value;
 	int rc = 0;
 
-	pr_debug("%s(): reg = %d\n", __func__, reg);
-	pr_debug("%s(): shift = %d\n", __func__, shift);
-	pr_debug("%s(): max = %d\n", __func__, max);
-	pr_debug("%s(): invert = %d\n", __func__, invert);
-	pr_debug("%s(): value = %ld\n", __func__,
+	if(!is_fw_download)
+		return 0;
+
+	pr_info("%s(): reg = %d\n", __func__, reg);
+	pr_info("%s(): shift = %d\n", __func__, shift);
+	pr_info("%s(): max = %d\n", __func__, max);
+	pr_info("%s(): invert = %d\n", __func__, invert);
+	pr_info("%s(): value = %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
 	value = ucontrol->value.integer.value[0];
 	rc = es325_write(NULL, reg, value);
@@ -2498,14 +2562,17 @@ static int es325_get_control_value(struct snd_kcontrol *kcontrol,
 	unsigned int invert = mc->invert;
 	unsigned int value;
 
-	pr_debug("%s(): reg = %d\n", __func__, reg);
-	pr_debug("%s(): shift = %d\n", __func__, shift);
-	pr_debug("%s(): max = %d\n", __func__, max);
-	pr_debug("%s(): invert = %d\n", __func__, invert);
+	if(!is_fw_download)
+		return 0;
+
+	pr_info("%s(): reg = %d\n", __func__, reg);
+	pr_info("%s(): shift = %d\n", __func__, shift);
+	pr_info("%s(): max = %d\n", __func__, max);
+	pr_info("%s(): invert = %d\n", __func__, invert);
 	value = es325_read(NULL, reg);
-	pr_debug("%s(): value = %d\n", __func__, value);
+	pr_info("%s(): value = %d\n", __func__, value);
 	ucontrol->value.integer.value[0] = value;
-	pr_debug("%s(): value = %ld\n", __func__,
+	pr_info("%s(): value = %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
 
 	return 0;
@@ -2521,9 +2588,12 @@ static int es325_put_control_enum(struct snd_kcontrol *kcontrol,
 	unsigned int value;
 	int rc = 0;
 
-	pr_debug("%s(): reg = 0x%x\n", __func__, reg);
-	pr_debug("%s(): max = %d\n", __func__, max);
-	pr_debug("%s(): value.integer.value[0] = %ld\n", __func__,
+	if(!is_fw_download)
+		return 0;
+
+	pr_info("%s(): reg = 0x%x\n", __func__, reg);
+	pr_info("%s(): max = %d\n", __func__, max);
+	pr_info("%s(): value.integer.value[0] = %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
 	value = ucontrol->value.integer.value[0];
 	rc = es325_write(NULL, reg, value);
@@ -2539,10 +2609,13 @@ static int es325_get_control_enum(struct snd_kcontrol *kcontrol,
 	unsigned int reg = e->reg;
 	unsigned int value;
 
-	pr_debug("%s(): reg = 0x%x\n", __func__, reg);
+	if(!is_fw_download)
+		return 0;
+
+	pr_info("%s(): reg = 0x%x\n", __func__, reg);
 	value = es325_read(NULL, reg);
 	ucontrol->value.enumerated.item[0] = value;
-	pr_debug("%s(): value = %d\n", __func__, value);
+	pr_info("%s(): value = %d\n", __func__, value);
 
 	return 0;
 }
@@ -2714,10 +2787,10 @@ static int es325_put_internal_route_config(struct snd_kcontrol *kcontrol,
 	if(es325_internal_route_num != route_num) {
 		es325_internal_route_num = route_num_old = route_num;
 		/* Flag to setup slimbus channel for es325 */
-		/* jeremy.pi@lge.com
-		*   blocked ch mapping flag
-		*   controled by UCM
-		*/
+		/*                  
+                             
+                      
+  */
 //		es325_rx1_route_ena = 1;
 //		es325_tx1_route_ena = 1;
 //		es325_rx2_route_ena = 1;
@@ -2738,19 +2811,7 @@ static int es325_put_internal_route_config(struct snd_kcontrol *kcontrol,
 							msg[0], msg[1], msg[2], msg[3]);
 				}
 			}
-		} else if (es325_internal_route_num == ES325_STOP) {
-			if (es325->power_state == ES325_POWER_AWAKE) {
-				msg_ptr = &es325_internal_route_configs[ES325_STOP][0];
-				for (i = 0; ; msg_ptr +=4) {
-					if (*msg_ptr == 0xff)
-						break;
-					memcpy(msg, msg_ptr, 4);
-					es325_slim_write(es325, ES325_WRITE_VE_OFFSET,
-										ES325_WRITE_VE_WIDTH, msg, 4, 1);
-					pr_info("%s(): msg = %02x%02x%02x%02x\n", __func__,
-							msg[0], msg[1], msg[2], msg[3]);
-				}
-			}
+		} else {
 			/* Flag to setup slimbus channel for without es325 */
 			// lock power lock
 			es325_rx1_route_ena = 0;
@@ -2804,6 +2865,9 @@ static int es325_put_dereverb_gain_value(struct snd_kcontrol *kcontrol,
 	unsigned int value;
 	int rc = 0;
 
+	if(!is_fw_download)
+		return 0;
+
 	if (ucontrol->value.integer.value[0] <= 12) {
 		pr_info("%s() ucontrol = %ld\n", __func__,
 			ucontrol->value.integer.value[0]);
@@ -2823,6 +2887,9 @@ static int es325_get_dereverb_gain_value(struct snd_kcontrol *kcontrol,
 	unsigned int reg = mc->reg;
 	unsigned int value;
 
+	if(!is_fw_download)
+		return 0;
+
 	value = es325_read(NULL, reg);
 	pr_info("%s() value = %d\n", __func__, value);
 	ucontrol->value.integer.value[0] = es325_gain_to_index(-12, 1, value);
@@ -2841,6 +2908,9 @@ static int es325_put_bwe_high_band_gain_value(struct snd_kcontrol *kcontrol,
 	unsigned int reg = mc->reg;
 	unsigned int value;
 	int rc = 0;
+
+	if(!is_fw_download)
+		return 0;
 
 	if (ucontrol->value.integer.value[0] <= 30) {
 		pr_info("%s() ucontrol = %ld\n", __func__,
@@ -2862,6 +2932,9 @@ static int es325_get_bwe_high_band_gain_value(struct snd_kcontrol *kcontrol,
 	unsigned int reg = mc->reg;
 	unsigned int value;
 
+	if(!is_fw_download)
+		return 0;
+
 	value = es325_read(NULL, reg);
 	pr_info("%s() value = %d\n", __func__, value);
 	ucontrol->value.integer.value[0] = es325_gain_to_index(-10, 1, value);
@@ -2880,6 +2953,9 @@ static int es325_put_bwe_max_snr_value(struct snd_kcontrol *kcontrol,
 	unsigned int reg = mc->reg;
 	unsigned int value;
 	int rc = 0;
+
+	if(!is_fw_download)
+		return 0;
 
 	if (ucontrol->value.integer.value[0] <= 70) {
 		pr_info("%s() ucontrol = %ld\n", __func__,
@@ -2900,6 +2976,9 @@ static int es325_get_bwe_max_snr_value(struct snd_kcontrol *kcontrol,
 		(struct soc_mixer_control *)kcontrol->private_value;
 	unsigned int reg = mc->reg;
 	unsigned int value;
+
+	if(!is_fw_download)
+		return 0;
 
 	value = es325_read(NULL, reg);
 	pr_info("%s() value = %d\n", __func__, value);
@@ -2985,6 +3064,7 @@ static const char *es325_internal_route_configs_text[ES325_STOP+1] = {
 	"TWO MIC FT VOLTE",		/* ES325_TWO_MIC_FT_VOLTE */
 	"TWO MIC CT VOIP",		/* ES325_TWO_MIC_CT_VOIP */
 	"TWO MIC FT VOIP",		/* ES325_TWO_MIC_FT_VOIP */
+	"TWO MIC CT VEQ",		/* ES325_TWO_MIC_CT_VEQ */
 	"ONE MIC HEADSET",		/* ES325_ONE_MIC_HEADSET */
 	"ONE CH MUSIC PLAYBACK",		/* ES325_ONE_CH_MUSIC_PLAYBACK */
 	"TWO CH MUSIC PLAYBACK",	/* ES325_TWO_CH_MUSIC_PLAYBACK */
@@ -3026,6 +3106,9 @@ static int es325_put_digital_gain_value(struct snd_kcontrol *kcontrol,
 	unsigned int value;
 	int rc = 0;
 
+	if(!is_fw_download)
+		return 0;
+
 	pr_info("%s() ucontrol = %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
 	value = ucontrol->value.integer.value[0];
@@ -3041,6 +3124,9 @@ static int es325_get_digital_gain_value(struct snd_kcontrol *kcontrol,
 		(struct soc_mixer_control *)kcontrol->private_value;
 	unsigned int reg = mc->reg;
 	unsigned int value;
+
+	if(!is_fw_download)
+		return 0;
 
 	value = es325_read(NULL, reg);
 	pr_info("%s() value = %d\n", __func__, value);
