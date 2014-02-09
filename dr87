@@ -17,7 +17,7 @@ export ccache=scripts
 export CCACHE_DIR=/home/dr87/ccache
 export loki=$SERV/87kernel/tmp
 export ARCH=arm
-export PATH=${PATH}:$SERV/4.7l/bin/
+export PATH=${PATH}:$SERV/4.7/bin/
 export CROSS_COMPILE=arm-eabi-
 ramdisk=ramdisk
 
