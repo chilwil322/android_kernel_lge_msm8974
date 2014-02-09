@@ -578,7 +578,7 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 		mA = DWC3_IDEV_CHG_MAX;
 
 	if (slimport_is_connected() && mA)
-		mA = 500;
+		mA = IDEV_CHG_MIN;
 
 	if (dotg->charger->max_power == mA)
 		return 0;
@@ -861,7 +861,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 							DWC3_IDEV_CHG_MAX);
 					else
 						dwc3_otg_set_power(phy,
-							DWC3_IDEV_CHG_MIN);
+							IDEV_CHG_MIN);
 #else
 					dwc3_otg_set_power(phy,
 							DWC3_IDEV_CHG_MIN);
