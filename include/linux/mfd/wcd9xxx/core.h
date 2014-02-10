@@ -193,6 +193,8 @@ struct wcd9xxx {
 
 	void *ssr_priv;
 	bool slim_device_bootup;
+	/* device down flag by device_down notification */
+	bool device_down;
 
 	u32 num_of_supplies;
 	struct regulator_bulk_data *supplies;
