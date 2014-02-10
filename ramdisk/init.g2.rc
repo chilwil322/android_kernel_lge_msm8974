@@ -140,7 +140,6 @@ on boot
     chmod 0644 /proc/bluetooth/sleep/btwrite
     chown bluetooth bluetooth /proc/bluetooth/sleep/lpm
     chown bluetooth bluetooth /proc/bluetooth/sleep/btwrite
-    stop mpdecision
 
 # lights perms
     chown system system /sys/class/leds/red/brightness
