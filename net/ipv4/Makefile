@@ -9,9 +9,12 @@ obj-y     := route.o inetpeer.o protocol.o \
 	     tcp.o tcp_input.o tcp_output.o tcp_timer.o tcp_ipv4.o \
 	     tcp_minisocks.o tcp_cong.o \
 	     datagram.o raw.o udp.o udplite.o \
-	     arp.o icmp.o devinet.o af_inet.o  igmp.o \
+	     arp.o icmp.o devinet.o af_inet.o igmp.o \
 	     fib_frontend.o fib_semantics.o fib_trie.o \
-	     inet_fragment.o ping.o
+	     inet_fragment.o ping.o tcp_bic.o tcp_cubic.o \
+	     tcp_westwood.o tcp_highspeed.o tcp_hybla.o \
+             tcp_htcp.o tcp_vegas.o tcp_veno.o tcp_scalable.o \
+	     tcp_lp.o tcp_yeah.o tcp_illinois.o
 
 obj-$(CONFIG_SYSCTL) += sysctl_net_ipv4.o
 obj-$(CONFIG_SYSFS) += sysfs_net_ipv4.o
