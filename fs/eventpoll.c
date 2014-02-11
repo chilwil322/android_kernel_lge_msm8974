@@ -545,14 +545,13 @@ static void ep_unregister_pollwait(struct eventpoll *ep, struct epitem *epi)
  * @sproc: Pointer to the scan callback.
  * @priv: Private opaque data passed to the @sproc callback.
  * @depth: The current depth of recursive f_op->poll calls.
- * @ep_locked: caller already holds ep->mtx
  *
  * Returns: The same integer error code returned by the @sproc callback.
  */
 static int ep_scan_ready_list(struct eventpoll *ep,
 			      int (*sproc)(struct eventpoll *,
 					   struct list_head *, void *),
-			      void *priv, int depth, bool ep_locked)
+			      void *priv, int depth, int ep_locked)
 {
 	int error, pwake = 0;
 	unsigned long flags;
@@ -775,12 +774,12 @@ static void ep_ptable_queue_proc(struct file *file, wait_queue_head_t *whead,
 
 struct readyevents_arg {
 	struct eventpoll *ep;
-	bool locked;
+	int locked;
 };
 
 static int ep_poll_readyevents_proc(void *priv, void *cookie, int call_nests)
 {
-	struct readyevents_arg *arg = priv;
+	struct readyevents_arg *arg = (struct readyevents_arg *)priv;
 
 	return ep_scan_ready_list(arg->ep, ep_read_events_proc, NULL,
 				  call_nests + 1, arg->locked);
@@ -796,7 +795,7 @@ static unsigned int ep_eventpoll_poll(struct file *file, poll_table *wait)
 	 * During ep_insert() we already hold the ep->mtx for the tfile.
 	 * Prevent re-aquisition.
 	 */
-	arg.locked = wait && (wait->_qproc == ep_ptable_queue_proc);
+	arg.locked = ((wait && (wait->_qproc == ep_ptable_queue_proc)) ? 1 : 0);
 	arg.ep = ep;
 
 	/* Insert inside our poll wait queue */
@@ -1270,9 +1269,29 @@ static int ep_modify(struct eventpoll *ep, struct epitem *epi, struct epoll_even
 	 * otherwise we might miss an event that happens between the
 	 * f_op->poll() call and the new event set registering.
 	 */
-	epi->event.events = event->events;
+	epi->event.events = event->events; /* need barrier below */
 	pt._key = event->events;
 	epi->event.data = event->data; /* protected by mtx */
+
+	/*
+	 * The following barrier has two effects:
+	 *
+	 * 1) Flush epi changes above to other CPUs.  This ensures
+	 *    we do not miss events from ep_poll_callback if an
+	 *    event occurs immediately after we call f_op->poll().
+	 *    We need this because we did not take ep->lock while
+	 *    changing epi above (but ep_poll_callback does take
+	 *    ep->lock).
+	 *
+	 * 2) We also need to ensure we do not miss _past_ events
+	 *    when calling f_op->poll().  This barrier also
+	 *    pairs with the barrier in wq_has_sleeper (see
+	 *    comments for wq_has_sleeper).
+	 *
+	 * This barrier will now guarantee ep_poll_callback or f_op->poll
+	 * (or both) will notice the readiness of an item.
+	 */
+	smp_mb();
 
 	/*
 	 * Get current event bits. We can safely use the file* here because
@@ -1376,7 +1395,7 @@ static int ep_send_events(struct eventpoll *ep,
 	esed.maxevents = maxevents;
 	esed.events = events;
 
-	return ep_scan_ready_list(ep, ep_send_events_proc, &esed, 0, false);
+	return ep_scan_ready_list(ep, ep_send_events_proc, &esed, 0, 0);
 }
 
 static inline struct timespec ep_set_mstimeout(long ms)
