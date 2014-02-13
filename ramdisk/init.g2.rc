@@ -198,16 +198,11 @@ on post-fs-data
     mkdir /persist/sensors
     chmod 775 /persist/sensors
 
-    #Provide the access to hostapd.conf only to root and group
-    chmod 0660 /data/hostapd/hostapd.conf
-
     # Enable the setgid bit on the directory
     mkdir /data/audio 0770 media audio
     chmod 2770 /data/audio
 
     setprop vold.post_fs_data_done 1
-
-    rm /data/local/tmp/adreno_config.txt
 
     # time_daemon storage
     mkdir /data/time/ 0700 system system
