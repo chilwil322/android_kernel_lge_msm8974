@@ -51,14 +51,14 @@
 #include <mach/board_lge.h>
 
 #if defined(CONFIG_LCD_KCAL)
-/* LGE_CHANGE_S
-* change code for LCD KCAL
-* 2013-05-08, seojin.lee@lge.com
+/*             
+                          
+                                
 */
 #include <linux/module.h>
 #include "../../../../drivers/video/msm/mdss/mdss_fb.h"
 extern int update_preset_lcdc_lut(void);
-#endif // CONFIG_LCD_KCAL
+#endif /* CONFIG_LCD_KCAL */
 
 static struct memtype_reserve msm8974_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
@@ -98,26 +98,6 @@ static void __init msm8974_early_memory(void)
 	of_scan_flat_dt(dt_scan_for_memory_hole, msm8974_reserve_table);
 }
 
-#ifdef CONFIG_BRICKED_THERMAL
-static struct msm_thermal_data msm_thermal_pdata = {
-	.sensor_id = 0,
-	.poll_ms = 400,
-	.shutdown_temp = 95,
-
-	.allowed_max_high = 85,
-	.allowed_max_low = 81,
-	.allowed_max_freq = 300000,
-
-	.allowed_mid_high = 82,
-	.allowed_mid_low = 77,
-	.allowed_mid_freq = 960000,
-
-	.allowed_low_high = 80,
-	.allowed_low_low = 75,
-	.allowed_low_freq = 1728000,
-};
-#endif
-
 #ifdef CONFIG_LGE_LCD_TUNING
 static struct platform_device lcd_misc_device = {
 	.name = "lcd_misc_msm",
@@ -131,9 +111,9 @@ void __init lge_add_lcd_misc_devices(void)
 #endif
 
 #if defined(CONFIG_LCD_KCAL)
-/* LGE_CHANGE_S
-* change code for LCD KCAL
-* 2013-05-08, seojin.lee@lge.com
+/*             
+                          
+                                
 */
 
 extern int g_kcal_r;
@@ -143,21 +123,20 @@ extern int g_kcal_b;
 int kcal_set_values(int kcal_r, int kcal_g, int kcal_b)
 {
 #if defined(CONFIG_MACH_MSM8974_A1)
-		int isUpdate = 0;
+		int is_update = 0;
 
-		int kcal_r_limit = 0;
-		int kcal_g_limit = 0;
-		int kcal_b_limit = 0;
+		int kcal_r_limit = 250;
+		int kcal_g_limit = 250;
+		int kcal_b_limit = 253;
 
 		g_kcal_r = kcal_r < kcal_r_limit ? kcal_r_limit : kcal_r;
 		g_kcal_g = kcal_g < kcal_g_limit ? kcal_g_limit : kcal_g;
 		g_kcal_b = kcal_b < kcal_b_limit ? kcal_b_limit : kcal_b;
 
-		if(kcal_r < kcal_r_limit || kcal_g < kcal_g_limit || kcal_b < kcal_b_limit){
-			isUpdate = 1;
-		}
-		if(isUpdate)
-		update_preset_lcdc_lut();
+		if (kcal_r < kcal_r_limit || kcal_g < kcal_g_limit || kcal_b < kcal_b_limit)
+			is_update = 1;
+		if (is_update)
+			update_preset_lcdc_lut();
 #else
 		g_kcal_r = kcal_r;
 		g_kcal_g = kcal_g;
@@ -195,21 +174,21 @@ static struct platform_device kcal_platrom_device = {
 
 void __init lge_add_lcd_kcal_devices(void)
 {
-	pr_info (" KCAL_DEBUG : %s \n", __func__);
+	pr_info(" KCAL_DEBUG : %s\n", __func__);
 	platform_device_register(&kcal_platrom_device);
 }
-#endif // CONFIG_LCD_KCAL
+#endif /* CONFIG_LCD_KCAL */
 /*
  * Used to satisfy dependencies for devices that need to be
  * run early or in a particular order. Most likely your device doesn't fall
  * into this category, and thus the driver should not be added here. The
  * EPROBE_DEFER can satisfy most dependency problems.
  */
-/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
-#if defined ( CONFIG_BCMDHD ) || defined ( CONFIG_BCMDHD_MODULE )
+/*                                                                    */
+#if defined(CONFIG_BCMDHD) || defined(CONFIG_BCMDHD_MODULE)
 extern void init_bcm_wifi(void);
 #endif
-/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 
 void __init msm8974_add_drivers(void)
 {
@@ -225,12 +204,7 @@ void __init msm8974_add_drivers(void)
 	else
 		msm_clock_init(&msm8974_clock_init_data);
 	tsens_tm_init_driver();
-#ifdef CONFIG_BRICKED_THERMAL
-	msm_thermal_init(&msm_thermal_pdata);
-#else
 	msm_thermal_device_init();
-#endif
-
 #ifdef CONFIG_LGE_LCD_TUNING
 	lge_add_lcd_misc_devices();
 #endif
@@ -242,20 +216,20 @@ void __init msm8974_add_drivers(void)
 	lge_add_lge_kernel_devices();
 #endif
 #ifdef CONFIG_LGE_DIAG_ENABLE_SYSFS
-    lge_add_diag_devices();
+	lge_add_diag_devices();
 #endif
-/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
-#if defined ( CONFIG_BCMDHD ) || defined ( CONFIG_BCMDHD_MODULE )
+/*                                                                    */
+#if defined(CONFIG_BCMDHD) || defined(CONFIG_BCMDHD_MODULE)
 	init_bcm_wifi();
 #endif
-/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+/*                                                                    */
 #if defined(CONFIG_LCD_KCAL)
-/* LGE_CHANGE_S
-* change code for LCD KCAL
-* 2013-05-08, seojin.lee@lge.com
+/*             
+                          
+                                
 */
 	lge_add_lcd_kcal_devices();
-#endif // CONFIG_LCD_KCAL
+#endif /* CONFIG_LCD_KCAL */
 }
 
 static struct of_dev_auxdata msm8974_auxdata_lookup[] __initdata = {
