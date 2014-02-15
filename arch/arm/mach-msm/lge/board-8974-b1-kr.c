@@ -40,13 +40,13 @@
 #include <mach/rpm-smd.h>
 #include <mach/rpm-regulator-smd.h>
 #include <mach/socinfo.h>
-#include <mach/msm_bus_board.h>
+#include <mach/msm_smem.h>
 #include "../board-dt.h"
 #include "../clock.h"
 #include "../devices.h"
 #include "../spm.h"
+#include "../pm.h"
 #include "../modem_notifier.h"
-#include "../lpm_resources.h"
 #include "../platsmp.h"
 #include <mach/board_lge.h>
 
@@ -115,7 +115,6 @@ void __init lge_add_lcd_misc_devices(void)
                           
                                 
 */
-
 extern int g_kcal_r;
 extern int g_kcal_g;
 extern int g_kcal_b;
@@ -142,7 +141,6 @@ int kcal_set_values(int kcal_r, int kcal_g, int kcal_b)
 		g_kcal_g = kcal_g;
 		g_kcal_b = kcal_b;
 #endif
-
 	return 0;
 }
 
@@ -192,10 +190,11 @@ extern void init_bcm_wifi(void);
 
 void __init msm8974_add_drivers(void)
 {
+	msm_smem_init();
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();
-	msm_lpmrs_module_init();
+	msm_pm_sleep_status_init();
 	rpm_regulator_smd_driver_init();
 	msm_spm_device_init();
 	krait_power_init();
@@ -204,11 +203,7 @@ void __init msm8974_add_drivers(void)
 	else
 		msm_clock_init(&msm8974_clock_init_data);
 	tsens_tm_init_driver();
-#ifdef CONFIG_INTELLI_THERMAL
-	msm_thermal_init(NULL);
-#else
 	msm_thermal_device_init();
-#endif
 #ifdef CONFIG_LGE_LCD_TUNING
 	lge_add_lcd_misc_devices();
 #endif
@@ -218,9 +213,6 @@ void __init msm8974_add_drivers(void)
 #endif
 #ifdef CONFIG_LGE_ECO_MODE
 	lge_add_lge_kernel_devices();
-#endif
-#ifdef CONFIG_LGE_DIAG_ENABLE_SYSFS
-	lge_add_diag_devices();
 #endif
 /*                                                                    */
 #if defined(CONFIG_BCMDHD) || defined(CONFIG_BCMDHD_MODULE)
@@ -234,6 +226,10 @@ void __init msm8974_add_drivers(void)
 */
 	lge_add_lcd_kcal_devices();
 #endif /* CONFIG_LCD_KCAL */
+
+#if defined(CONFIG_LGE_PM_BATTERY_ID_CHECKER)
+	lge_battery_id_devices();
+#endif
 }
 
 static struct of_dev_auxdata msm8974_auxdata_lookup[] __initdata = {
