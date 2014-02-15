@@ -2,7 +2,7 @@
 
 #### EXPORT VARIABLES ####
 build=/home/chilwil322/android/android_kernel_lge_msm8974
-version="3.4.79"
+version="3.4.80"
 rom="cm"
 variant="vs980"
 toolchain=~/android/toolchain/bin/arm-eabi-
