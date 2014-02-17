@@ -6,11 +6,13 @@ version="3.4.80"
 rom="cm"
 variant="vs980"
 toolchain=~/android/toolchain/bin/arm-eabi-
+ccache=$build/scripts/ccache
 
 #### BUILD ZIMAGE ####
 echo "Starting build..."
 export ARCH=arm
-export CROSS_COMPILE=$toolchain
+export CCACHE_DIR="/home/chilwil322/.kernelccache"
+export CROSS_COMPILE="$ccache $toolchain"
 make clean
 make vs980_defconfig
 time make -j4
