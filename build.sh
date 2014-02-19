@@ -15,7 +15,7 @@ export CCACHE_DIR="/home/chilwil322/.kernelccache"
 export CROSS_COMPILE="$ccache $toolchain"
 make clean
 make vs980_defconfig
-time make -j4
+script -q ~/Compile.log -c " time make -j4 "
 
 #### BUILD BOOT.IMG ####
 echo "Checking for build..."
