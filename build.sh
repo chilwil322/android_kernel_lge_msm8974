@@ -3,8 +3,6 @@
 #### EXPORT VARIABLES ####
 build=/home/chilwil322/android/android_kernel_lge_msm8974
 version="3.4.82"
-rom="cm"
-variant="vs980"
 toolchain=~/android/toolchain/bin/arm-eabi-
 ccache=$build/scripts/ccache
 
@@ -15,7 +13,7 @@ export CCACHE_DIR="/home/chilwil322/.kernelccache"
 export CROSS_COMPILE="$ccache $toolchain"
 make clean
 make vs980_defconfig
-script -q ~/Compile.log -c " time make -j4 "
+script -q ~/Compile.log -c " time make -j$(cat /proc/cpuinfo | grep "^processor" | wc -l) "
 
 #### BUILD BOOT.IMG ####
 echo "Checking for build..."
@@ -33,7 +31,7 @@ echo "Boot.img has been created..."
 #### BUILD FLASHABLE ZIP ####
 echo "Zipping..."
 cd out
-zip -r ../burkKernel-"$version"_"$rom"-"$variant".zip .
+zip -r ../zips/burkKernel-"$version"_$(date +%a-%Y%m%d-%T).zip . 
 cd ..
 echo "Cleaning up..."
 rm -rf output/zImage
