@@ -133,6 +133,8 @@ int __init acm_init(void)
 	return 0;
 }
 
+late_initcall(acm_init);
+
 MODULE_AUTHOR("Alex Deddo <adeddo27@gmail.com");
 MODULE_DESCRIPTION("A CPU driver for user control of active cores");
 MODULE_LICENSE("GPL");
